@@ -11,7 +11,20 @@ const db = {
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function getBiz() { return db.businesses.find(b => b.id === db.activeBizId); }
-function getShops() { return db.shops.filter(s => s.bizId === db.activeBizId); }
+// ---- Shop ordering: automatic (natural shop-number order) or the owner's own order ----
+const shopCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });   // S-2 before S-10
+function shopSortMode() { try { return localStorage.getItem('shopSort') || 'number'; } catch (e) { return 'number'; } }
+function setShopSort(v) { try { localStorage.setItem('shopSort', v); } catch (e) {} renderShops(); }
+function orderShops(list, mode = shopSortMode()) {
+  const byNum = (x, y) => shopCollator.compare(x.shopNum || '', y.shopNum || '');
+  const a = [...list];
+  if (mode === 'name') a.sort((x, y) => shopCollator.compare(x.tenantName || '', y.tenantName || '') || byNum(x, y));
+  else if (mode === 'rent') a.sort((x, y) => (Number(y.monthlyRent) || 0) - (Number(x.monthlyRent) || 0) || byNum(x, y));
+  else if (mode === 'custom') a.sort((x, y) => ((x.order ?? 1e9) - (y.order ?? 1e9)) || byNum(x, y));
+  else a.sort(byNum);
+  return a;
+}
+function getShops() { return orderShops(db.shops.filter(s => s.bizId === db.activeBizId)); }
 function getRent() { return db.rentPayments.filter(r => r.bizId === db.activeBizId); }
 function getRoz() { return db.roznamcha.filter(r => r.bizId === db.activeBizId); }
 
@@ -156,36 +169,78 @@ function collectRent(shopId, amount, month) {
 // ===================== SHOPS =====================
 function renderShops() {
   if (!requireBiz()) return;
-  const q = (document.getElementById('shop-search').value||'').toLowerCase();
+  const mode = shopSortMode();
+  document.getElementById('shop-sort').value = mode;
+  const q = (document.getElementById('shop-search').value||'').trim().toLowerCase();
   const sf = document.getElementById('shop-filter-status').value;
   let shops = getShops().filter(s => {
-    const match = (s.shopNum+s.shopName+s.tenantName+s.tenantPhone).toLowerCase().includes(q);
-    const statusOk = !sf || s.status === sf;
-    return match && statusOk;
+    const match = !q || [s.shopNum, s.shopName, s.tenantName, s.tenantPhone].join(' ').toLowerCase().includes(q);
+    return match && (!sf || s.status === sf);
   });
-
+  // When searching, shops whose NUMBER matches come first (exact, then starts-with, then contains).
+  if (q) {
+    const rank = s => { const n = String(s.shopNum || '').toLowerCase(); return n === q ? 0 : n.startsWith(q) ? 1 : n.includes(q) ? 2 : 3; };
+    shops.sort((x, y) => rank(x) - rank(y));
+  }
+  const movable = mode === 'custom' && !q && !sf;
   const tbody = document.getElementById('shops-tbody');
   if (!shops.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="es-icon">🏪</div><p>No shops yet. Tap “+ Add Shop / Tenant” to add your first one.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="es-icon">🏪</div><p>${q ? 'No shop matches “' + esc(q) + '”.' : 'No shops yet. Tap “+ Add Shop / Tenant” to add your first one.'}</p></div></td></tr>`;
     return;
   }
-  tbody.innerHTML = shops.map(s => {
-    const rent = getRent().filter(r => r.shopId === s.id).reduce((x,r) => x+(Number(r.amount)||0), 0);
-    return `<tr>
-      <td><strong>${esc(s.shopNum)}</strong></td>
+  const hint = mode === 'custom' && !movable ? '<tr class="hint-row"><td colspan="9">Clear the search and the status filter to rearrange shops.</td></tr>' : '';
+  tbody.innerHTML = hint + shops.map((s, i) => `<tr ${movable ? `draggable="true" data-id="${s.id}" class="draggable"` : ''}>
+      <td><strong>${movable ? '<span class="grip" title="Drag to move">☰</span> ' : ''}${esc(s.shopNum)}</strong></td>
       <td>${esc(s.shopName||'—')}</td>
-      <td><a href="#" onclick="openTenantDetail('${s.id}')" style="color:var(--primary);font-weight:600">${esc(s.tenantName)}</a></td>
+      <td><a href="#" onclick="openTenantDetail('${s.id}');return false" style="color:var(--primary);font-weight:600">${esc(s.tenantName)}</a></td>
       <td>${esc(s.tenantPhone||'—')}</td>
       <td>${fmt(s.monthlyRent)}</td>
       <td>${fmt(s.depositPaid)} / ${fmt(s.depositTotal)}</td>
       <td>${esc(s.startDate||'—')}</td>
       <td><span class="badge ${s.status==='active'?'badge-green':'badge-gray'}">${esc(s.status)}</span></td>
       <td style="white-space:nowrap">
+        ${movable ? `<button class="btn btn-ghost btn-sm" onclick="moveShop('${s.id}',-1)" ${i === 0 ? 'disabled' : ''} title="Move up">▲</button>
+        <button class="btn btn-ghost btn-sm" onclick="moveShop('${s.id}',1)" ${i === shops.length - 1 ? 'disabled' : ''} title="Move down">▼</button>` : ''}
         <button class="btn btn-ghost btn-sm" onclick="openShopModal('${s.id}')">Edit</button>
         <button class="btn btn-danger btn-sm" onclick="deleteShop('${s.id}')">Delete</button>
       </td>
-    </tr>`;
-  }).join('');
+    </tr>`).join('');
+  if (movable) wireShopDrag(tbody);
+}
+
+// Save the current visible order (10, 20, 30…) so it syncs to every device.
+async function saveShopOrder(list) {
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].order !== (i + 1) * 10) await Store.put('shops', { ...list[i], order: (i + 1) * 10 });
+  }
+}
+
+async function moveShop(id, dir) {
+  const list = getShops();
+  const i = list.findIndex(s => s.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  await saveShopOrder(list);
+}
+
+async function dropShop(dragId, targetId) {
+  if (dragId === targetId) return;
+  const list = getShops();
+  const from = list.findIndex(s => s.id === dragId), to = list.findIndex(s => s.id === targetId);
+  if (from < 0 || to < 0) return;
+  list.splice(to, 0, list.splice(from, 1)[0]);
+  await saveShopOrder(list);
+}
+
+function wireShopDrag(tbody) {
+  let dragId = null;
+  tbody.querySelectorAll('tr.draggable').forEach(tr => {
+    tr.addEventListener('dragstart', e => { dragId = tr.dataset.id; e.dataTransfer.effectAllowed = 'move'; tr.classList.add('dragging'); });
+    tr.addEventListener('dragend', () => tr.classList.remove('dragging'));
+    tr.addEventListener('dragover', e => { e.preventDefault(); tr.classList.add('drop-target'); });
+    tr.addEventListener('dragleave', () => tr.classList.remove('drop-target'));
+    tr.addEventListener('drop', e => { e.preventDefault(); tr.classList.remove('drop-target'); dropShop(dragId, tr.dataset.id); });
+  });
 }
 
 function openShopModal(id) {

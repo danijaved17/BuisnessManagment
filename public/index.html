@@ -120,13 +120,19 @@
 
     <!-- SHOPS -->
     <div class="section" id="s-shops">
-      <p class="page-help">Everyone who rents one of your shops. Tap a tenant's name to see their full history.</p>
+      <p class="page-help">Everyone who rents one of your shops, sorted by shop number automatically. Choose “My own order” to rearrange them yourself. Tap a tenant's name to see their full history.</p>
       <div class="filter-bar">
-        <input type="text" id="shop-search" placeholder="Search by tenant name, shop or phone…" oninput="renderShops()">
+        <input type="text" id="shop-search" placeholder="Search by shop number, tenant or phone…" oninput="renderShops()">
         <select id="shop-filter-status" onchange="renderShops()">
           <option value="">Everyone</option>
           <option value="active">Active</option>
           <option value="inactive">Moved out</option>
+        </select>
+        <select id="shop-sort" onchange="setShopSort(this.value)" title="How the list is ordered">
+          <option value="number">Order: Shop number (automatic)</option>
+          <option value="name">Order: Tenant name (A–Z)</option>
+          <option value="rent">Order: Highest rent first</option>
+          <option value="custom">Order: My own order (drag / ▲▼)</option>
         </select>
         <button class="btn btn-primary" onclick="openShopModal()">+ Add Shop / Tenant</button>
       </div>
