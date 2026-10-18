@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1e293b">
+<title>Business Manager</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- Sign-in screen -->
+<div id="login-screen" hidden>
+  <div class="login-card">
+    <div class="login-logo">🏢</div>
+    <h1>Business Manager</h1>
+    <h2 id="login-title">Sign in</h2>
+    <p id="login-sub" class="login-sub"></p>
+    <form id="login-form" autocomplete="on">
+      <label for="login-user">Username</label>
+      <input id="login-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <label for="login-pass">Password</label>
+      <input id="login-pass" name="password" type="password" autocomplete="current-password">
+      <div id="login-confirm-row">
+        <label for="login-pass2">Confirm password</label>
+        <input id="login-pass2" type="password" autocomplete="new-password">
+      </div>
+      <div id="login-error" class="login-error" role="alert"></div>
+      <button id="login-submit" class="btn btn-primary" type="submit">Sign in</button>
+    </form>
+    <div id="login-offline" hidden>
+      <p id="login-offline-text" class="login-sub"></p>
+      <button id="login-retry" class="btn btn-primary" type="button">Try again</button>
+    </div>
+  </div>
+</div>
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="logo">Business Manager <span id="sidebar-biz-name">No business selected</span></div>
+  <nav>
+    <div class="nav-section">Overview</div>
+    <a href="#" class="active" data-section="dashboard" onclick="navigate('dashboard',this)">
+      <span class="icon">🏠</span> Home
+    </a>
+    <div class="nav-section">Shops</div>
+    <a href="#" data-section="shops" onclick="navigate('shops',this)">
+      <span class="icon">🏪</span> Shops &amp; Tenants
+    </a>
+    <a href="#" data-section="deposits" onclick="navigate('deposits',this)">
+      <span class="icon">💰</span> Deposits (Security)
+    </a>
+    <a href="#" data-section="rent" onclick="navigate('rent',this)">
+      <span class="icon">💵</span> Collect Rent
+    </a>
+    <div class="nav-section">Daily Accounts</div>
+    <a href="#" data-section="roznamcha" onclick="navigate('roznamcha',this)">
+      <span class="icon">📒</span> Daily Book (Roz Namcha)
+    </a>
+    <a href="#" data-section="parties" onclick="navigate('parties',this)">
+      <span class="icon">👥</span> Party Accounts
+    </a>
+    <div class="nav-section">Safety</div>
+    <a href="#" data-section="reports" onclick="navigate('reports',this)">
+      <span class="icon">💾</span> Backup &amp; Reports
+    </a>
+  </nav>
+  <div class="biz-select">
+    <label>Active Business</label>
+    <select id="biz-dropdown" onchange="switchBusiness(this.value)"></select>
+    <a class="add-biz-btn" onclick="openAddBusiness()">+ Add Business</a>
+  </div>
+  <a class="signout-link" onclick="Auth.logout()">🔓 Sign out</a>
+  <div class="sync-status" title="Click to sync now" onclick="Sync.now()">
+    <span class="dot"></span><span class="sync-text">Starting…</span>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <div id="topbar">
+    <h1 id="topbar-title">Home</h1>
+    <div class="topbar-right">
+      <span class="sync-badge sync-status" onclick="Sync.now()" title="Tap to sync now"><span class="dot"></span><span class="sync-text">…</span></span>
+      <select id="biz-dropdown-m" class="biz-m" onchange="switchBusiness(this.value)" aria-label="Choose business"></select>
+    </div>
+    <div class="actions" id="topbar-actions"></div>
+  </div>
+  <div id="content">
+    <div class="card" id="no-biz" hidden style="text-align:center;padding:48px">
+      <div style="font-size:48px;margin-bottom:16px">🏢</div>
+      <h2 style="margin-bottom:8px">No Business Selected</h2>
+      <p style="color:var(--muted);margin-bottom:20px">Add a business to get started.</p>
+      <button class="btn btn-primary" onclick="openAddBusiness()">+ Add Business</button>
+    </div>
+
+
+    <!-- DASHBOARD -->
+    <div class="section active" id="s-dashboard">
+      <div id="backup-warning"></div>
+      <div class="quick-actions">
+        <button class="qa qa-green" onclick="openRentModal()"><span>💵</span>Receive Rent</button>
+        <button class="qa qa-blue" onclick="openRozModal()"><span>📒</span>Add to Daily Book</button>
+        <button class="qa qa-gray" onclick="navigate('shops');openShopModal()"><span>🏪</span>Add Shop / Tenant</button>
+      </div>
+      <div class="stats-grid" id="dash-stats"></div>
+      <div class="dash-grid">
+        <div class="card">
+          <div class="card-title">⏰ Rent still to collect this month</div>
+          <div id="dash-due"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📒 Latest entries in your Daily Book</div>
+          <div id="dash-txn"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOPS -->
+    <div class="section" id="s-shops">
+      <p class="page-help">Everyone who rents one of your shops. Tap a tenant's name to see their full history.</p>
+      <div class="filter-bar">
+        <input type="text" id="shop-search" placeholder="Search by tenant name, shop or phone…" oninput="renderShops()">
+        <select id="shop-filter-status" onchange="renderShops()">
+          <option value="">Everyone</option>
+          <option value="active">Active</option>
+          <option value="inactive">Moved out</option>
+        </select>
+        <button class="btn btn-primary" onclick="openShopModal()">+ Add Shop / Tenant</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Shop #</th><th>Shop Name</th><th>Tenant</th><th>Phone</th>
+                <th>Monthly Rent</th><th>Deposit</th><th>Start Date</th>
+                <th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="shops-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEPOSITS -->
+    <div class="section" id="s-deposits">
+      <p class="page-help">Security money taken from tenants, and any amount you kept back (for damages etc.).</p>
+      <div class="card">
+        <div class="card-title">💰 Deposit Ledger</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Shop #</th><th>Tenant</th><th>Total Deposit</th><th>Received</th><th>Withheld</th><th>Balance</th><th>Notes</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="deposits-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RENT COLLECTION -->
+    <div class="section" id="s-rent">
+      <p class="page-help">Every rent payment you have received. Use the green button when a tenant pays.</p>
+      <div class="filter-bar">
+        <select id="rent-filter-shop" onchange="renderRent()">
+          <option value="">All Shops</option>
+        </select>
+        <select id="rent-filter-month" title="Choose a month" onchange="renderRent()"></select>
+        <button class="btn btn-primary" onclick="openRentModal()">+ Receive Rent</button>
+      </div>
+      <div class="card-title" style="margin-bottom:4px">📅 Rent status for <span id="rent-status-month"></span></div>
+      <p class="page-help" style="margin-bottom:12px">Tenants can pay in stages. Each payment is added up, and you can see what is still left. Choose the month above.</p>
+      <div id="rent-status" class="rent-status-grid"></div>
+      <div class="card-title" style="margin-top:8px">🧾 All payments received</div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Shop #</th><th>Tenant</th><th>For Month</th><th>Amount</th><th>Payment Mode</th><th>Notes</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="rent-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROZ NAMCHA -->
+    <div class="section" id="s-roznamcha">
+      <p class="page-help">Your day-to-day book. Debit = the party owes you (or you paid them). Credit = the party paid you (or you owe them). Each party's balance is on the Party Accounts page.</p>
+      <div class="filter-bar">
+        <input type="text" id="roz-search" placeholder="Search by name or item…" oninput="renderRoznamcha()">
+        <input type="date" id="roz-from" onchange="renderRoznamcha()">
+        <span style="color:var(--muted);font-size:13px">to</span>
+        <input type="date" id="roz-to" onchange="renderRoznamcha()">
+        <button class="btn btn-ghost btn-sm" onclick="clearRozFilter()">Clear</button>
+        <button class="btn btn-primary" onclick="openRozModal()">+ Add Entry</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Qty</th><th>Particulars</th><th>Yards</th><th>Party Name</th><th>Description</th><th>Rate</th><th>Debit</th><th>Credit</th><th>Notes</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="roz-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="roz-totals" class="card" style="margin-top:0;"></div>
+    </div>
+
+    <!-- PARTY ACCOUNTS -->
+    <div class="section" id="s-parties">
+      <p class="page-help">Everyone you do business with. See who owes you money and who you need to pay. Tap a party to see their full statement.</p>
+      <div class="stats-grid" id="party-stats"></div>
+      <div class="filter-bar">
+        <input type="text" id="party-search" placeholder="Search party name…" oninput="renderParties()">
+        <select id="party-filter" onchange="renderParties()">
+          <option value="">All parties</option>
+          <option value="receive">They owe me</option>
+          <option value="pay">I owe them</option>
+          <option value="settled">Settled</option>
+        </select>
+        <button class="btn btn-primary" onclick="openRozModal()">+ Add Entry</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Party</th><th>Total Debit</th><th>Total Credit</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="parties-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="section" id="s-reports">
+      <p class="page-help">Download your records, or save a backup copy so nothing is ever lost.</p>
+      <div class="card" id="offline-status"></div>
+      <div class="card" id="account-card"></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;">
+        <div class="card">
+          <div class="card-title">📋 Shops &amp; Tenants list</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Export all shops, tenants, deposit and rent summary.</p>
+          <button class="btn btn-primary" onclick="exportShopsCSV()">⬇ Download (opens in Excel)</button>
+        </div>
+        <div class="card">
+          <div class="card-title">💵 Rent payments list</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Export all rent payments with dates and modes.</p>
+          <button class="btn btn-primary" onclick="exportRentCSV()">⬇ Download (opens in Excel)</button>
+        </div>
+        <div class="card">
+          <div class="card-title">📒 Daily Book list</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Export daily transaction ledger.</p>
+          <button class="btn btn-primary" onclick="exportRozCSV()">⬇ Download (opens in Excel)</button>
+        </div>
+        <div class="card">
+          <div class="card-title">🛡️ Safety Backup</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Save a copy of ALL your information to a file. Keep it somewhere safe (email it to yourself or put it on a USB). You can load it back any time.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-success" onclick="exportJSON()">⬇ Save Backup</button>
+            <label class="btn btn-ghost" style="cursor:pointer;">
+              ⬆ Load Backup <input type="file" accept=".json" style="display:none" onchange="importJSON(this)">
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Mobile bottom navigation -->
+<nav id="bottom-nav" aria-label="Main">
+  <a href="#" data-section="dashboard" class="active" onclick="return navigate('dashboard')"><span>🏠</span>Home</a>
+  <a href="#" data-section="shops" onclick="return navigate('shops')"><span>🏪</span>Shops</a>
+  <a href="#" data-section="rent" onclick="return navigate('rent')"><span>💵</span>Rent</a>
+  <a href="#" data-section="roznamcha" onclick="return navigate('roznamcha')"><span>📒</span>Book</a>
+  <a href="#" data-section="parties" onclick="return navigate('parties')"><span>👥</span>Parties</a>
+  <a href="#" data-section="deposits" onclick="return navigate('deposits')"><span>💰</span>Deposits</a>
+  <a href="#" data-section="reports" onclick="return navigate('reports')"><span>💾</span>Backup</a>
+</nav>
+
+<!-- Notifications -->
+<div id="notif"></div>
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- Add Business -->
+<div class="modal-overlay" id="modal-biz">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h2 id="biz-modal-title">Add Business</h2>
+      
+      <button class="modal-close" onclick="closeModal('modal-biz')">×</button>
+    </div>
+    <p class="modal-help" id="biz-modal-help"></p>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Business Name</label>
+        <input id="biz-name-input" type="text" placeholder="e.g. Main Market Shops">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Address / Notes</label>
+        <textarea id="biz-addr-input" placeholder="Optional address or description"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-biz')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveBusiness()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Shop -->
+<div class="modal-overlay" id="modal-shop">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="shop-modal-title">Add Shop / Tenant</h2>
+      <button class="modal-close" onclick="closeModal('modal-shop')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Shop Number</label>
+        <input id="f-shop-num" type="text" placeholder="e.g. S-01">
+      </div>
+      <div class="form-group">
+        <label>Shop Name / Description</label>
+        <input id="f-shop-name" type="text" placeholder="e.g. Corner Shop">
+      </div>
+      <div class="form-group">
+        <label>Tenant Name</label>
+        <input id="f-tenant-name" type="text" placeholder="Full name">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input id="f-tenant-phone" type="tel" placeholder="03xxxxxxxxx">
+      </div>
+      <div class="form-group">
+        <label>Monthly Rent (PKR)</label>
+        <input id="f-monthly-rent" type="number" inputmode="numeric" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Start Date</label>
+        <input id="f-start-date" type="date">
+      </div>
+      <div class="form-group">
+        <label>Deposit Agreed</label>
+        <input id="f-deposit-total" type="number" inputmode="numeric" placeholder="0">
+        <small class="hint">The security amount you agreed on</small>
+      </div>
+      <div class="form-group">
+        <label>Deposit Received</label>
+        <input id="f-deposit-paid" type="number" inputmode="numeric" placeholder="0">
+        <small class="hint">How much they have actually paid so far</small>
+      </div>
+      <div class="form-group">
+        <label>Deposit Date</label>
+        <input id="f-deposit-date" type="date">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="f-status">
+          <option value="active">Active</option>
+          <option value="inactive">Moved out (vacated)</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea id="f-notes" placeholder="Any notes..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-shop')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveShop()">Save</button>
+    </div>
+    <input type="hidden" id="f-shop-id">
+  </div>
+</div>
+
+<!-- Record Rent Payment -->
+<div class="modal-overlay" id="modal-rent">
+  <div class="modal" style="max-width:450px">
+    <div class="modal-header">
+      <h2>Record Rent Payment</h2>
+      <button class="modal-close" onclick="closeModal('modal-rent')">×</button>
+    </div>
+    <div id="rent-info" class="rent-info"></div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Shop / Tenant</label>
+        <select id="f-rent-shop" onchange="updateRentInfo()"></select>
+      </div>
+      <div class="form-group">
+        <label>Date received</label>
+        <input id="f-rent-date" type="date">
+      </div>
+      <div class="form-group">
+        <label>Rent for which month?</label>
+        <select id="f-rent-month" onchange="updateRentInfo()"></select>
+      </div>
+      <div class="form-group">
+        <label>Amount received now (PKR)</label>
+        <input id="f-rent-amount" type="number" inputmode="numeric" placeholder="0" oninput="updateRentInfo()">
+        <small class="hint">A part payment is fine, you can add the rest later</small>
+      </div>
+      <div class="form-group">
+        <label>Payment Mode</label>
+        <select id="f-rent-mode">
+          <option value="Cash">Cash</option>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="Cheque">Cheque</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea id="f-rent-notes" placeholder="Receipt no, remarks..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-rent')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRent()">Save</button>
+    </div>
+    <input type="hidden" id="f-rent-id">
+  </div>
+</div>
+
+<!-- Edit Deposit -->
+<div class="modal-overlay" id="modal-deposit">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2>Edit Deposit Record</h2>
+      <button class="modal-close" onclick="closeModal('modal-deposit')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Deposit Agreed</label>
+        <input id="fd-total" type="number">
+      </div>
+      <div class="form-group">
+        <label>Amount Received</label>
+        <input id="fd-received" type="number">
+      </div>
+      <div class="form-group">
+        <label>Amount Kept Back</label>
+        <input id="fd-withheld" type="number">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea id="fd-notes" placeholder="Reason for withholding, damages, etc."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-deposit')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDeposit()">Save</button>
+    </div>
+    <input type="hidden" id="fd-shop-id">
+  </div>
+</div>
+
+<!-- Roz Namcha Entry -->
+<div class="modal-overlay" id="modal-roz">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="roz-modal-title">Add Roz Namcha Entry</h2>
+      <button class="modal-close" onclick="closeModal('modal-roz')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Date</label>
+        <input id="fr-date" type="date">
+      </div>
+      <div class="form-group">
+        <label>How many</label>
+        <input id="fr-qty" type="number" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Particulars</label>
+        <input id="fr-particulars" type="text" placeholder="e.g. cloth type / details">
+      </div>
+      <div class="form-group">
+        <label>Yards</label>
+        <input id="fr-yards" type="number" step="any" inputmode="decimal" placeholder="0" oninput="calcRozAmount()">
+      </div>
+      <div class="form-group">
+        <label>Party Name</label>
+        <input id="fr-party" type="text" list="party-list" placeholder="Party / Person name" autocomplete="off">
+        <datalist id="party-list"></datalist>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Description / Order</label>
+        <input id="fr-desc" type="text" placeholder="Item / service description">
+      </div>
+      <div class="form-group">
+        <label>Price each (PKR)</label>
+        <input id="fr-rate" type="number" placeholder="0" oninput="calcRozAmount()">
+      </div>
+      <div class="form-group">
+        <label>Total Amount (PKR)</label>
+        <input id="fr-amount" type="number" inputmode="numeric" placeholder="Total amount">
+        <small class="hint">Calculated automatically: Yards × Price each (you can still change it)</small>
+      </div>
+      <div class="form-group">
+        <label>Debit or Credit?</label>
+        <select id="fr-type">
+          <option value="Debit">Debit (Dr) — party owes me / I paid the party</option>
+          <option value="Credit">Credit (Cr) — party paid me / I owe the party</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea id="fr-notes" placeholder="Additional remarks..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-roz')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRoz()">Save</button>
+    </div>
+    <input type="hidden" id="fr-id">
+  </div>
+</div>
+
+<!-- Party Statement -->
+<div class="modal-overlay" id="modal-party">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-header">
+      <h2 id="party-title">Party Statement</h2>
+      <button class="modal-close" onclick="closeModal('modal-party')">×</button>
+    </div>
+    <div id="party-body"></div>
+  </div>
+</div>
+
+<!-- Tenant Detail Modal -->
+<div class="modal-overlay" id="modal-tenant-detail">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <h2 id="td-title">Tenant Detail</h2>
+      <button class="modal-close" onclick="closeModal('modal-tenant-detail')">×</button>
+    </div>
+    <div id="td-body"></div>
+  </div>
+</div>
+
+<script src="js/store.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/sync.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

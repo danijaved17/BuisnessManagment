@@ -1,0 +1,1331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Business Manager</title>
+<style>
+  :root {
+    --primary: #2563eb;
+    --primary-dark: #1d4ed8;
+    --success: #16a34a;
+    --danger: #dc2626;
+    --warning: #d97706;
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #1e293b;
+    --muted: #64748b;
+    --sidebar-bg: #1e293b;
+    --sidebar-text: #cbd5e1;
+    --sidebar-active: #2563eb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
+
+  /* Sidebar */
+  #sidebar {
+    width: 240px; min-width: 240px; background: var(--sidebar-bg); color: var(--sidebar-text);
+    display: flex; flex-direction: column; z-index: 10;
+  }
+  #sidebar .logo { padding: 20px 16px; font-size: 16px; font-weight: 700; color: #fff; border-bottom: 1px solid #334155; }
+  #sidebar .logo span { display: block; font-size: 11px; font-weight: 400; color: #94a3b8; margin-top: 2px; }
+  #sidebar nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+  #sidebar .nav-section { padding: 8px 16px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #475569; }
+  #sidebar a {
+    display: flex; align-items: center; gap: 10px; padding: 9px 16px;
+    color: var(--sidebar-text); text-decoration: none; font-size: 14px;
+    border-left: 3px solid transparent; transition: all 0.15s;
+  }
+  #sidebar a:hover { background: #334155; color: #fff; }
+  #sidebar a.active { background: #1e3a5f; color: #fff; border-left-color: var(--primary); }
+  #sidebar a .icon { font-size: 16px; width: 20px; text-align: center; }
+  #sidebar .biz-select { padding: 12px 16px; border-top: 1px solid #334155; }
+  #sidebar .biz-select label { font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px; }
+  #sidebar select {
+    width: 100%; background: #334155; color: #fff; border: 1px solid #475569;
+    border-radius: 6px; padding: 6px 8px; font-size: 13px; cursor: pointer;
+  }
+  #sidebar .add-biz-btn {
+    display: block; margin: 8px 16px 0; background: #334155; color: #94a3b8;
+    border: 1px dashed #475569; border-radius: 6px; padding: 6px; text-align: center;
+    font-size: 12px; cursor: pointer; text-decoration: none;
+  }
+  #sidebar .add-biz-btn:hover { background: #3f4f65; color: #fff; border-color: #64748b; }
+
+  /* Main */
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  #topbar {
+    background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
+    min-height: 56px;
+  }
+  #topbar h1 { font-size: 18px; font-weight: 600; }
+  #topbar .actions { display: flex; gap: 8px; }
+  #content { flex: 1; overflow-y: auto; padding: 24px; }
+
+  /* Cards / Sections */
+  .section { display: none; }
+  .section.active { display: block; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; margin-bottom: 20px;
+  }
+  .card-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+  /* Stats row */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 20px;
+  }
+  .stat-card .label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .stat-card .value { font-size: 24px; font-weight: 700; }
+  .stat-card.green .value { color: var(--success); }
+  .stat-card.blue .value { color: var(--primary); }
+  .stat-card.orange .value { color: var(--warning); }
+  .stat-card.red .value { color: var(--danger); }
+
+  /* Forms */
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; color: var(--text); background: #fff; transition: border 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+  }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover { background: #15803d; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #b91c1c; }
+  .btn-warning { background: var(--warning); color: #fff; }
+  .btn-warning:hover { background: #b45309; }
+  .btn-outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+  .btn-outline:hover { background: var(--primary); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-ghost { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { background: var(--border); }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    background: var(--bg); padding: 10px 12px; text-align: left;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--muted); border-bottom: 2px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:hover { background: #f8fafc; }
+  tbody td { padding: 10px 12px; vertical-align: middle; }
+  tbody tr:last-child { border-bottom: none; }
+
+  /* Badge */
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  }
+  .badge-green { background: #dcfce7; color: #15803d; }
+  .badge-red { background: #fee2e2; color: #b91c1c; }
+  .badge-orange { background: #fef3c7; color: #b45309; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-gray { background: #f1f5f9; color: #475569; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 100; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 16px; padding: 24px;
+    width: min(600px, 95vw); max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .modal-header h2 { font-size: 16px; font-weight: 700; }
+  .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted); line-height: 1; }
+  .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 8px; }
+
+  /* Search/filter bar */
+  .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+  .filter-bar input, .filter-bar select {
+    padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 13px; background: #fff;
+  }
+  .filter-bar input:focus, .filter-bar select:focus { outline: none; border-color: var(--primary); }
+
+  /* Tenant detail panel */
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .detail-item .dk { font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; }
+  .detail-item .dv { font-size: 14px; font-weight: 500; margin-top: 2px; }
+
+  /* Progress bar */
+  .progress-wrap { background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; margin-top: 4px; }
+  .progress-fill { height: 100%; border-radius: 99px; background: var(--primary); transition: width 0.3s; }
+  .progress-fill.green { background: var(--success); }
+  .progress-fill.red { background: var(--danger); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+  .tab {
+    padding: 8px 18px; font-size: 13px; font-weight: 600; color: var(--muted);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
+    transition: all 0.15s;
+  }
+  .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Notification */
+  #notif {
+    position: fixed; top: 16px; right: 16px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+  }
+  .notif-item {
+    background: #1e293b; color: #fff; padding: 12px 16px; border-radius: 10px;
+    font-size: 13px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    animation: slideIn 0.2s ease; max-width: 300px;
+  }
+  .notif-item.success { border-left: 4px solid var(--success); }
+  .notif-item.error { border-left: 4px solid var(--danger); }
+  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* Responsive tweaks */
+  @media (max-width: 700px) {
+    #sidebar { width: 200px; min-width: 200px; }
+    #content { padding: 16px; }
+  }
+  .empty-state {
+    text-align: center; padding: 48px 20px; color: var(--muted);
+  }
+  .empty-state .es-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  .rent-stage {
+    display: flex; align-items: center; gap: 8px; padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .rent-stage:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div id="sidebar">
+  <div class="logo">Business Manager <span id="sidebar-biz-name">No business selected</span></div>
+  <nav>
+    <div class="nav-section">Overview</div>
+    <a href="#" class="active" data-section="dashboard" onclick="navigate('dashboard',this)">
+      <span class="icon">📊</span> Dashboard
+    </a>
+    <div class="nav-section">Shop Management</div>
+    <a href="#" data-section="shops" onclick="navigate('shops',this)">
+      <span class="icon">🏪</span> Shops / Tenants
+    </a>
+    <a href="#" data-section="deposits" onclick="navigate('deposits',this)">
+      <span class="icon">💰</span> Deposits
+    </a>
+    <a href="#" data-section="rent" onclick="navigate('rent',this)">
+      <span class="icon">📋</span> Rent Collection
+    </a>
+    <div class="nav-section">Accounts</div>
+    <a href="#" data-section="roznamcha" onclick="navigate('roznamcha',this)">
+      <span class="icon">📒</span> Roz Namcha
+    </a>
+    <div class="nav-section">Reports</div>
+    <a href="#" data-section="reports" onclick="navigate('reports',this)">
+      <span class="icon">📁</span> Export / CSV
+    </a>
+  </nav>
+  <div class="biz-select">
+    <label>Active Business</label>
+    <select id="biz-dropdown" onchange="switchBusiness(this.value)"></select>
+    <a class="add-biz-btn" onclick="openAddBusiness()">+ Add Business</a>
+  </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+  <div id="topbar">
+    <h1 id="topbar-title">Dashboard</h1>
+    <div class="actions" id="topbar-actions"></div>
+  </div>
+  <div id="content">
+
+    <!-- DASHBOARD -->
+    <div class="section active" id="s-dashboard">
+      <div class="stats-grid" id="dash-stats"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="card">
+          <div class="card-title">⚠️ Rent Due Soon</div>
+          <div id="dash-due"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">📒 Recent Transactions</div>
+          <div id="dash-txn"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOPS -->
+    <div class="section" id="s-shops">
+      <div class="filter-bar">
+        <input type="text" id="shop-search" placeholder="Search tenant or shop..." oninput="renderShops()">
+        <select id="shop-filter-status" onchange="renderShops()">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <button class="btn btn-primary" onclick="openShopModal()">+ Add Shop / Tenant</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Shop #</th><th>Shop Name</th><th>Tenant</th><th>Phone</th>
+                <th>Monthly Rent</th><th>Deposit</th><th>Start Date</th>
+                <th>Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="shops-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEPOSITS -->
+    <div class="section" id="s-deposits">
+      <div class="card">
+        <div class="card-title">💰 Deposit Ledger</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Shop #</th><th>Tenant</th><th>Total Deposit</th><th>Received</th><th>Withheld</th><th>Balance</th><th>Notes</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="deposits-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- RENT COLLECTION -->
+    <div class="section" id="s-rent">
+      <div class="filter-bar">
+        <select id="rent-filter-shop" onchange="renderRent()">
+          <option value="">All Shops</option>
+        </select>
+        <input type="month" id="rent-filter-month" onchange="renderRent()">
+        <button class="btn btn-primary" onclick="openRentModal()">+ Record Payment</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Shop #</th><th>Tenant</th><th>For Month</th><th>Amount</th><th>Payment Mode</th><th>Notes</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="rent-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROZ NAMCHA -->
+    <div class="section" id="s-roznamcha">
+      <div class="filter-bar">
+        <input type="text" id="roz-search" placeholder="Search party..." oninput="renderRoznamcha()">
+        <input type="date" id="roz-from" onchange="renderRoznamcha()">
+        <span style="color:var(--muted);font-size:13px">to</span>
+        <input type="date" id="roz-to" onchange="renderRoznamcha()">
+        <button class="btn btn-ghost btn-sm" onclick="clearRozFilter()">Clear</button>
+        <button class="btn btn-primary" onclick="openRozModal()">+ Add Entry</button>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Party Name</th><th>Description</th><th>Qty</th><th>Rate</th><th>Amount</th><th>Type</th><th>Notes</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="roz-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="roz-totals" class="card" style="margin-top:0;"></div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="section" id="s-reports">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;">
+        <div class="card">
+          <div class="card-title">📋 Shops & Tenants CSV</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Export all shops, tenants, deposit and rent summary.</p>
+          <button class="btn btn-primary" onclick="exportShopsCSV()">⬇ Download Shops CSV</button>
+        </div>
+        <div class="card">
+          <div class="card-title">💵 Rent Collection CSV</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Export all rent payments with dates and modes.</p>
+          <button class="btn btn-primary" onclick="exportRentCSV()">⬇ Download Rent CSV</button>
+        </div>
+        <div class="card">
+          <div class="card-title">📒 Roz Namcha CSV</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Export daily transaction ledger.</p>
+          <button class="btn btn-primary" onclick="exportRozCSV()">⬇ Download Roz Namcha CSV</button>
+        </div>
+        <div class="card">
+          <div class="card-title">📦 Full Backup JSON</div>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Export all data as JSON for backup/restore.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn btn-success" onclick="exportJSON()">⬇ Backup Data</button>
+            <label class="btn btn-ghost" style="cursor:pointer;">
+              ⬆ Restore <input type="file" accept=".json" style="display:none" onchange="importJSON(this)">
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Notifications -->
+<div id="notif"></div>
+
+<!-- ===================== MODALS ===================== -->
+
+<!-- Add Business -->
+<div class="modal-overlay" id="modal-biz">
+  <div class="modal" style="max-width:400px">
+    <div class="modal-header">
+      <h2>Add Business</h2>
+      <button class="modal-close" onclick="closeModal('modal-biz')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Business Name</label>
+        <input id="biz-name-input" type="text" placeholder="e.g. Main Market Shops">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Address / Notes</label>
+        <textarea id="biz-addr-input" placeholder="Optional address or description"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-biz')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveBusiness()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Shop -->
+<div class="modal-overlay" id="modal-shop">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="shop-modal-title">Add Shop / Tenant</h2>
+      <button class="modal-close" onclick="closeModal('modal-shop')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Shop Number</label>
+        <input id="f-shop-num" type="text" placeholder="e.g. S-01">
+      </div>
+      <div class="form-group">
+        <label>Shop Name / Description</label>
+        <input id="f-shop-name" type="text" placeholder="e.g. Corner Shop">
+      </div>
+      <div class="form-group">
+        <label>Tenant Name</label>
+        <input id="f-tenant-name" type="text" placeholder="Full name">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input id="f-tenant-phone" type="tel" placeholder="03xxxxxxxxx">
+      </div>
+      <div class="form-group">
+        <label>Monthly Rent (PKR)</label>
+        <input id="f-monthly-rent" type="number" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Start Date</label>
+        <input id="f-start-date" type="date">
+      </div>
+      <div class="form-group">
+        <label>Total Deposit Amount</label>
+        <input id="f-deposit-total" type="number" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Deposit Received</label>
+        <input id="f-deposit-paid" type="number" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Deposit Date</label>
+        <input id="f-deposit-date" type="date">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="f-status">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive / Vacated</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea id="f-notes" placeholder="Any notes..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-shop')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveShop()">Save</button>
+    </div>
+    <input type="hidden" id="f-shop-id">
+  </div>
+</div>
+
+<!-- Record Rent Payment -->
+<div class="modal-overlay" id="modal-rent">
+  <div class="modal" style="max-width:450px">
+    <div class="modal-header">
+      <h2>Record Rent Payment</h2>
+      <button class="modal-close" onclick="closeModal('modal-rent')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Shop / Tenant</label>
+        <select id="f-rent-shop"></select>
+      </div>
+      <div class="form-group">
+        <label>Payment Date</label>
+        <input id="f-rent-date" type="date">
+      </div>
+      <div class="form-group">
+        <label>For Month</label>
+        <input id="f-rent-month" type="month">
+      </div>
+      <div class="form-group">
+        <label>Amount Paid (PKR)</label>
+        <input id="f-rent-amount" type="number" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Payment Mode</label>
+        <select id="f-rent-mode">
+          <option value="Cash">Cash</option>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="Cheque">Cheque</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea id="f-rent-notes" placeholder="Receipt no, remarks..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-rent')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRent()">Save</button>
+    </div>
+    <input type="hidden" id="f-rent-id">
+  </div>
+</div>
+
+<!-- Edit Deposit -->
+<div class="modal-overlay" id="modal-deposit">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2>Edit Deposit Record</h2>
+      <button class="modal-close" onclick="closeModal('modal-deposit')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Total Deposit Agreed</label>
+        <input id="fd-total" type="number">
+      </div>
+      <div class="form-group">
+        <label>Amount Received</label>
+        <input id="fd-received" type="number">
+      </div>
+      <div class="form-group">
+        <label>Amount Withheld (deducted)</label>
+        <input id="fd-withheld" type="number">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea id="fd-notes" placeholder="Reason for withholding, damages, etc."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-deposit')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDeposit()">Save</button>
+    </div>
+    <input type="hidden" id="fd-shop-id">
+  </div>
+</div>
+
+<!-- Roz Namcha Entry -->
+<div class="modal-overlay" id="modal-roz">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="roz-modal-title">Add Roz Namcha Entry</h2>
+      <button class="modal-close" onclick="closeModal('modal-roz')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Date</label>
+        <input id="fr-date" type="date">
+      </div>
+      <div class="form-group">
+        <label>Party Name</label>
+        <input id="fr-party" type="text" placeholder="Party / Person name">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Description / Order</label>
+        <input id="fr-desc" type="text" placeholder="Item / service description">
+      </div>
+      <div class="form-group">
+        <label>Quantity</label>
+        <input id="fr-qty" type="number" placeholder="0" oninput="calcRozAmount()">
+      </div>
+      <div class="form-group">
+        <label>Rate (PKR)</label>
+        <input id="fr-rate" type="number" placeholder="0" oninput="calcRozAmount()">
+      </div>
+      <div class="form-group">
+        <label>Amount (PKR)</label>
+        <input id="fr-amount" type="number" placeholder="auto-calculated">
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="fr-type">
+          <option value="Credit">Credit (Income)</option>
+          <option value="Debit">Debit (Expense)</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea id="fr-notes" placeholder="Additional remarks..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-roz')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveRoz()">Save</button>
+    </div>
+    <input type="hidden" id="fr-id">
+  </div>
+</div>
+
+<!-- Tenant Detail Modal -->
+<div class="modal-overlay" id="modal-tenant-detail">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <h2 id="td-title">Tenant Detail</h2>
+      <button class="modal-close" onclick="closeModal('modal-tenant-detail')">×</button>
+    </div>
+    <div id="td-body"></div>
+  </div>
+</div>
+
+<script>
+// ===================== DATA LAYER =====================
+const DB_KEY = 'bizmanager_v2';
+
+function loadDB() {
+  try {
+    return JSON.parse(localStorage.getItem(DB_KEY)) || defaultDB();
+  } catch(e) { return defaultDB(); }
+}
+
+function defaultDB() {
+  return {
+    businesses: [],
+    activeBizId: null,
+    shops: [],
+    rentPayments: [],
+    roznamcha: []
+  };
+}
+
+function saveDB(db) {
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+}
+
+let db = loadDB();
+
+function getBiz() {
+  return db.businesses.find(b => b.id === db.activeBizId);
+}
+
+function getShops() {
+  return db.shops.filter(s => s.bizId === db.activeBizId);
+}
+
+function getRent() {
+  return db.rentPayments.filter(r => r.bizId === db.activeBizId);
+}
+
+function getRoz() {
+  return db.roznamcha.filter(r => r.bizId === db.activeBizId);
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+}
+
+// ===================== NAVIGATION =====================
+let currentSection = 'dashboard';
+
+function navigate(sec, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('#sidebar a').forEach(a => a.classList.remove('active'));
+  document.getElementById('s-' + sec).classList.add('active');
+  if (el) el.classList.add('active');
+  currentSection = sec;
+  const titles = {
+    dashboard: 'Dashboard', shops: 'Shops & Tenants', deposits: 'Deposits',
+    rent: 'Rent Collection', roznamcha: 'Roz Namcha', reports: 'Export / Reports'
+  };
+  document.getElementById('topbar-title').textContent = titles[sec] || sec;
+  renderSection(sec);
+  return false;
+}
+
+function renderSection(sec) {
+  if (sec === 'dashboard') renderDashboard();
+  else if (sec === 'shops') renderShops();
+  else if (sec === 'deposits') renderDeposits();
+  else if (sec === 'rent') renderRent();
+  else if (sec === 'roznamcha') renderRoznamcha();
+}
+
+// ===================== BUSINESS =====================
+function renderBizDropdown() {
+  const dd = document.getElementById('biz-dropdown');
+  dd.innerHTML = db.businesses.length
+    ? db.businesses.map(b => `<option value="${b.id}" ${b.id===db.activeBizId?'selected':''}>${b.name}</option>`).join('')
+    : '<option value="">-- No Business --</option>';
+  const biz = getBiz();
+  document.getElementById('sidebar-biz-name').textContent = biz ? biz.name : 'No business selected';
+}
+
+function switchBusiness(id) {
+  db.activeBizId = id;
+  saveDB(db);
+  renderBizDropdown();
+  renderSection(currentSection);
+}
+
+function openAddBusiness() {
+  document.getElementById('biz-name-input').value = '';
+  document.getElementById('biz-addr-input').value = '';
+  openModal('modal-biz');
+}
+
+function saveBusiness() {
+  const name = document.getElementById('biz-name-input').value.trim();
+  if (!name) return notify('Enter business name', 'error');
+  const biz = { id: uid(), name, address: document.getElementById('biz-addr-input').value.trim() };
+  db.businesses.push(biz);
+  db.activeBizId = biz.id;
+  saveDB(db);
+  closeModal('modal-biz');
+  renderBizDropdown();
+  renderSection(currentSection);
+  notify('Business added: ' + name, 'success');
+}
+
+// ===================== DASHBOARD =====================
+function renderDashboard() {
+  const shops = getShops();
+  const rent = getRent();
+  const roz = getRoz();
+  const totalRent = shops.reduce((s, sh) => s + (Number(sh.monthlyRent)||0), 0);
+  const totalDeposit = shops.reduce((s, sh) => s + (Number(sh.depositPaid)||0), 0);
+  const thisMonth = new Date().toISOString().slice(0,7);
+  const rentThisMonth = rent.filter(r => r.forMonth === thisMonth).reduce((s,r) => s+(Number(r.amount)||0), 0);
+  const active = shops.filter(s => s.status === 'active').length;
+
+  document.getElementById('dash-stats').innerHTML = `
+    <div class="stat-card blue"><div class="label">Active Shops</div><div class="value">${active}</div></div>
+    <div class="stat-card green"><div class="label">Monthly Rent Due</div><div class="value">${fmt(totalRent)}</div></div>
+    <div class="stat-card orange"><div class="label">Rent Collected (This Month)</div><div class="value">${fmt(rentThisMonth)}</div></div>
+    <div class="stat-card red"><div class="label">Total Deposits Held</div><div class="value">${fmt(totalDeposit)}</div></div>
+  `;
+
+  // Rent due
+  const due = shops.filter(s => s.status === 'active').map(s => {
+    const paid = rent.filter(r => r.shopId === s.id && r.forMonth === thisMonth).reduce((x,r) => x+(Number(r.amount)||0), 0);
+    const due = (Number(s.monthlyRent)||0) - paid;
+    return { ...s, paid, due };
+  }).filter(s => s.due > 0);
+
+  document.getElementById('dash-due').innerHTML = due.length ? due.map(s => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div><div style="font-weight:600;font-size:13px">${s.shopNum} - ${s.tenantName}</div><div style="font-size:11px;color:var(--muted)">Paid: ${fmt(s.paid)}</div></div>
+      <span class="badge badge-red">Due: ${fmt(s.due)}</span>
+    </div>`).join('') :
+    '<div class="empty-state" style="padding:24px"><div class="es-icon">✅</div><p>All rent collected for this month</p></div>';
+
+  // Recent roz
+  const recent = [...roz].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 5);
+  document.getElementById('dash-txn').innerHTML = recent.length ? recent.map(r => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div><div style="font-weight:600;font-size:13px">${r.party}</div><div style="font-size:11px;color:var(--muted)">${r.date} · ${r.desc}</div></div>
+      <span class="badge ${r.type==='Credit'?'badge-green':'badge-red'}">${r.type==='Credit'?'+':'-'}${fmt(r.amount)}</span>
+    </div>`).join('') :
+    '<div class="empty-state" style="padding:24px"><div class="es-icon">📒</div><p>No transactions yet</p></div>';
+}
+
+// ===================== SHOPS =====================
+function renderShops() {
+  if (!requireBiz()) return;
+  const q = (document.getElementById('shop-search').value||'').toLowerCase();
+  const sf = document.getElementById('shop-filter-status').value;
+  let shops = getShops().filter(s => {
+    const match = (s.shopNum+s.shopName+s.tenantName+s.tenantPhone).toLowerCase().includes(q);
+    const statusOk = !sf || s.status === sf;
+    return match && statusOk;
+  });
+
+  const tbody = document.getElementById('shops-tbody');
+  if (!shops.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="es-icon">🏪</div><p>No shops found. Add one to get started.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = shops.map(s => {
+    const rent = getRent().filter(r => r.shopId === s.id).reduce((x,r) => x+(Number(r.amount)||0), 0);
+    return `<tr>
+      <td><strong>${s.shopNum}</strong></td>
+      <td>${s.shopName||'—'}</td>
+      <td><a href="#" onclick="openTenantDetail('${s.id}')" style="color:var(--primary);font-weight:600">${s.tenantName}</a></td>
+      <td>${s.tenantPhone||'—'}</td>
+      <td>${fmt(s.monthlyRent)}</td>
+      <td>${fmt(s.depositPaid)} / ${fmt(s.depositTotal)}</td>
+      <td>${s.startDate||'—'}</td>
+      <td><span class="badge ${s.status==='active'?'badge-green':'badge-gray'}">${s.status}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="openShopModal('${s.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteShop('${s.id}')">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openShopModal(id) {
+  const s = id ? db.shops.find(x => x.id === id) : null;
+  document.getElementById('shop-modal-title').textContent = s ? 'Edit Shop / Tenant' : 'Add Shop / Tenant';
+  document.getElementById('f-shop-id').value = id || '';
+  document.getElementById('f-shop-num').value = s?.shopNum || '';
+  document.getElementById('f-shop-name').value = s?.shopName || '';
+  document.getElementById('f-tenant-name').value = s?.tenantName || '';
+  document.getElementById('f-tenant-phone').value = s?.tenantPhone || '';
+  document.getElementById('f-monthly-rent').value = s?.monthlyRent || '';
+  document.getElementById('f-start-date').value = s?.startDate || '';
+  document.getElementById('f-deposit-total').value = s?.depositTotal || '';
+  document.getElementById('f-deposit-paid').value = s?.depositPaid || '';
+  document.getElementById('f-deposit-date').value = s?.depositDate || '';
+  document.getElementById('f-status').value = s?.status || 'active';
+  document.getElementById('f-notes').value = s?.notes || '';
+  openModal('modal-shop');
+}
+
+function saveShop() {
+  const id = document.getElementById('f-shop-id').value;
+  const shopNum = document.getElementById('f-shop-num').value.trim();
+  const tenantName = document.getElementById('f-tenant-name').value.trim();
+  if (!shopNum) return notify('Shop number required', 'error');
+  if (!tenantName) return notify('Tenant name required', 'error');
+
+  const data = {
+    bizId: db.activeBizId,
+    shopNum, tenantName,
+    shopName: document.getElementById('f-shop-name').value.trim(),
+    tenantPhone: document.getElementById('f-tenant-phone').value.trim(),
+    monthlyRent: Number(document.getElementById('f-monthly-rent').value)||0,
+    startDate: document.getElementById('f-start-date').value,
+    depositTotal: Number(document.getElementById('f-deposit-total').value)||0,
+    depositPaid: Number(document.getElementById('f-deposit-paid').value)||0,
+    depositDate: document.getElementById('f-deposit-date').value,
+    status: document.getElementById('f-status').value,
+    notes: document.getElementById('f-notes').value.trim(),
+    depositWithheld: 0,
+    depositNotes: ''
+  };
+
+  if (id) {
+    const idx = db.shops.findIndex(s => s.id === id);
+    const existing = db.shops[idx];
+    db.shops[idx] = { ...existing, ...data };
+  } else {
+    db.shops.push({ id: uid(), ...data });
+  }
+  saveDB(db);
+  closeModal('modal-shop');
+  renderShops();
+  populateRentShopSelect();
+  notify('Shop saved', 'success');
+}
+
+function deleteShop(id) {
+  if (!confirm('Delete this shop and all related rent records?')) return;
+  db.shops = db.shops.filter(s => s.id !== id);
+  db.rentPayments = db.rentPayments.filter(r => r.shopId !== id);
+  saveDB(db);
+  renderShops();
+  notify('Shop deleted', 'success');
+}
+
+// ===================== DEPOSITS =====================
+function renderDeposits() {
+  if (!requireBiz()) return;
+  const shops = getShops();
+  const tbody = document.getElementById('deposits-tbody');
+  if (!shops.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="es-icon">💰</div><p>No shops added yet</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = shops.map(s => {
+    const balance = (Number(s.depositPaid)||0) - (Number(s.depositWithheld)||0);
+    const balBadge = balance > 0 ? 'badge-green' : balance < 0 ? 'badge-red' : 'badge-gray';
+    return `<tr>
+      <td><strong>${s.shopNum}</strong></td>
+      <td>${s.tenantName}</td>
+      <td>${fmt(s.depositTotal)}</td>
+      <td>${fmt(s.depositPaid)}</td>
+      <td>${fmt(s.depositWithheld||0)}</td>
+      <td><span class="badge ${balBadge}">${fmt(balance)}</span></td>
+      <td style="font-size:12px;color:var(--muted);max-width:180px">${s.depositNotes||'—'}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openDepositModal('${s.id}')">Edit</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function openDepositModal(shopId) {
+  const s = db.shops.find(x => x.id === shopId);
+  if (!s) return;
+  document.getElementById('fd-shop-id').value = shopId;
+  document.getElementById('fd-total').value = s.depositTotal || 0;
+  document.getElementById('fd-received').value = s.depositPaid || 0;
+  document.getElementById('fd-withheld').value = s.depositWithheld || 0;
+  document.getElementById('fd-notes').value = s.depositNotes || '';
+  openModal('modal-deposit');
+}
+
+function saveDeposit() {
+  const id = document.getElementById('fd-shop-id').value;
+  const idx = db.shops.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  db.shops[idx].depositTotal = Number(document.getElementById('fd-total').value)||0;
+  db.shops[idx].depositPaid = Number(document.getElementById('fd-received').value)||0;
+  db.shops[idx].depositWithheld = Number(document.getElementById('fd-withheld').value)||0;
+  db.shops[idx].depositNotes = document.getElementById('fd-notes').value.trim();
+  saveDB(db);
+  closeModal('modal-deposit');
+  renderDeposits();
+  notify('Deposit updated', 'success');
+}
+
+// ===================== RENT =====================
+function populateRentShopSelect() {
+  const shops = getShops();
+  const sel = document.getElementById('f-rent-shop');
+  sel.innerHTML = shops.map(s => `<option value="${s.id}">${s.shopNum} - ${s.tenantName}</option>`).join('');
+
+  const fsel = document.getElementById('rent-filter-shop');
+  fsel.innerHTML = '<option value="">All Shops</option>' +
+    shops.map(s => `<option value="${s.id}">${s.shopNum} - ${s.tenantName}</option>`).join('');
+}
+
+function renderRent() {
+  if (!requireBiz()) return;
+  populateRentShopSelect();
+  const shopF = document.getElementById('rent-filter-shop').value;
+  const monthF = document.getElementById('rent-filter-month').value;
+  let payments = getRent().filter(r => {
+    return (!shopF || r.shopId === shopF) && (!monthF || r.forMonth === monthF);
+  }).sort((a,b) => b.date.localeCompare(a.date));
+
+  const tbody = document.getElementById('rent-tbody');
+  if (!payments.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="es-icon">📋</div><p>No payments recorded yet</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = payments.map(r => {
+    const shop = db.shops.find(s => s.id === r.shopId);
+    return `<tr>
+      <td>${r.date}</td>
+      <td>${shop?.shopNum||'?'}</td>
+      <td>${shop?.tenantName||'?'}</td>
+      <td>${r.forMonth}</td>
+      <td><strong>${fmt(r.amount)}</strong></td>
+      <td><span class="badge badge-blue">${r.mode}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${r.notes||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="openRentModal('${r.id}')">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRent('${r.id}')">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openRentModal(id) {
+  populateRentShopSelect();
+  const r = id ? db.rentPayments.find(x => x.id === id) : null;
+  document.getElementById('f-rent-id').value = id || '';
+  document.getElementById('f-rent-shop').value = r?.shopId || (getShops()[0]?.id || '');
+  document.getElementById('f-rent-date').value = r?.date || today();
+  document.getElementById('f-rent-month').value = r?.forMonth || today().slice(0,7);
+  document.getElementById('f-rent-amount').value = r?.amount || '';
+  document.getElementById('f-rent-mode').value = r?.mode || 'Cash';
+  document.getElementById('f-rent-notes').value = r?.notes || '';
+  openModal('modal-rent');
+}
+
+function saveRent() {
+  const id = document.getElementById('f-rent-id').value;
+  const shopId = document.getElementById('f-rent-shop').value;
+  const amount = Number(document.getElementById('f-rent-amount').value);
+  if (!shopId) return notify('Select a shop', 'error');
+  if (!amount) return notify('Enter amount', 'error');
+
+  const data = {
+    bizId: db.activeBizId, shopId,
+    date: document.getElementById('f-rent-date').value,
+    forMonth: document.getElementById('f-rent-month').value,
+    amount,
+    mode: document.getElementById('f-rent-mode').value,
+    notes: document.getElementById('f-rent-notes').value.trim()
+  };
+
+  if (id) {
+    const idx = db.rentPayments.findIndex(r => r.id === id);
+    db.rentPayments[idx] = { ...db.rentPayments[idx], ...data };
+  } else {
+    db.rentPayments.push({ id: uid(), ...data });
+  }
+  saveDB(db);
+  closeModal('modal-rent');
+  renderRent();
+  notify('Rent payment saved', 'success');
+}
+
+function deleteRent(id) {
+  if (!confirm('Delete this payment record?')) return;
+  db.rentPayments = db.rentPayments.filter(r => r.id !== id);
+  saveDB(db);
+  renderRent();
+  notify('Payment deleted', 'success');
+}
+
+// ===================== ROZ NAMCHA =====================
+function calcRozAmount() {
+  const qty = Number(document.getElementById('fr-qty').value)||0;
+  const rate = Number(document.getElementById('fr-rate').value)||0;
+  if (qty && rate) document.getElementById('fr-amount').value = qty * rate;
+}
+
+function clearRozFilter() {
+  document.getElementById('roz-search').value = '';
+  document.getElementById('roz-from').value = '';
+  document.getElementById('roz-to').value = '';
+  renderRoznamcha();
+}
+
+function renderRoznamcha() {
+  if (!requireBiz()) return;
+  const q = (document.getElementById('roz-search').value||'').toLowerCase();
+  const from = document.getElementById('roz-from').value;
+  const to = document.getElementById('roz-to').value;
+
+  let entries = getRoz().filter(r => {
+    const matchQ = (r.party+r.desc+r.notes).toLowerCase().includes(q);
+    const afterFrom = !from || r.date >= from;
+    const beforeTo = !to || r.date <= to;
+    return matchQ && afterFrom && beforeTo;
+  }).sort((a,b) => b.date.localeCompare(a.date));
+
+  const tbody = document.getElementById('roz-tbody');
+  if (!entries.length) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="es-icon">📒</div><p>No entries yet</p></div></td></tr>`;
+    document.getElementById('roz-totals').innerHTML = '';
+    return;
+  }
+
+  tbody.innerHTML = entries.map(r => `<tr>
+    <td>${r.date}</td>
+    <td><strong>${r.party}</strong></td>
+    <td>${r.desc||'—'}</td>
+    <td>${r.qty||'—'}</td>
+    <td>${r.rate ? fmt(r.rate) : '—'}</td>
+    <td><strong>${fmt(r.amount)}</strong></td>
+    <td><span class="badge ${r.type==='Credit'?'badge-green':'badge-red'}">${r.type}</span></td>
+    <td style="font-size:12px;color:var(--muted)">${r.notes||'—'}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-ghost btn-sm" onclick="openRozModal('${r.id}')">Edit</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteRoz('${r.id}')">Del</button>
+    </td>
+  </tr>`).join('');
+
+  const totalCredit = entries.filter(r => r.type==='Credit').reduce((s,r) => s+(Number(r.amount)||0), 0);
+  const totalDebit = entries.filter(r => r.type==='Debit').reduce((s,r) => s+(Number(r.amount)||0), 0);
+  const net = totalCredit - totalDebit;
+  document.getElementById('roz-totals').innerHTML = `
+    <div style="display:flex;gap:24px;flex-wrap:wrap">
+      <div><div style="font-size:11px;color:var(--muted);font-weight:600">TOTAL CREDIT</div><div style="font-size:20px;font-weight:700;color:var(--success)">${fmt(totalCredit)}</div></div>
+      <div><div style="font-size:11px;color:var(--muted);font-weight:600">TOTAL DEBIT</div><div style="font-size:20px;font-weight:700;color:var(--danger)">${fmt(totalDebit)}</div></div>
+      <div><div style="font-size:11px;color:var(--muted);font-weight:600">NET BALANCE</div><div style="font-size:20px;font-weight:700;color:${net>=0?'var(--success)':'var(--danger)'}">${fmt(net)}</div></div>
+      <div><div style="font-size:11px;color:var(--muted);font-weight:600">ENTRIES</div><div style="font-size:20px;font-weight:700">${entries.length}</div></div>
+    </div>
+  `;
+}
+
+function openRozModal(id) {
+  const r = id ? db.roznamcha.find(x => x.id === id) : null;
+  document.getElementById('roz-modal-title').textContent = r ? 'Edit Entry' : 'Add Roz Namcha Entry';
+  document.getElementById('fr-id').value = id || '';
+  document.getElementById('fr-date').value = r?.date || today();
+  document.getElementById('fr-party').value = r?.party || '';
+  document.getElementById('fr-desc').value = r?.desc || '';
+  document.getElementById('fr-qty').value = r?.qty || '';
+  document.getElementById('fr-rate').value = r?.rate || '';
+  document.getElementById('fr-amount').value = r?.amount || '';
+  document.getElementById('fr-type').value = r?.type || 'Credit';
+  document.getElementById('fr-notes').value = r?.notes || '';
+  openModal('modal-roz');
+}
+
+function saveRoz() {
+  const id = document.getElementById('fr-id').value;
+  const party = document.getElementById('fr-party').value.trim();
+  const amount = Number(document.getElementById('fr-amount').value);
+  if (!party) return notify('Party name required', 'error');
+  if (!amount) return notify('Amount required', 'error');
+
+  const data = {
+    bizId: db.activeBizId,
+    date: document.getElementById('fr-date').value,
+    party,
+    desc: document.getElementById('fr-desc').value.trim(),
+    qty: document.getElementById('fr-qty').value,
+    rate: document.getElementById('fr-rate').value,
+    amount,
+    type: document.getElementById('fr-type').value,
+    notes: document.getElementById('fr-notes').value.trim()
+  };
+
+  if (id) {
+    const idx = db.roznamcha.findIndex(r => r.id === id);
+    db.roznamcha[idx] = { ...db.roznamcha[idx], ...data };
+  } else {
+    db.roznamcha.push({ id: uid(), ...data });
+  }
+  saveDB(db);
+  closeModal('modal-roz');
+  renderRoznamcha();
+  notify('Entry saved', 'success');
+}
+
+function deleteRoz(id) {
+  if (!confirm('Delete this entry?')) return;
+  db.roznamcha = db.roznamcha.filter(r => r.id !== id);
+  saveDB(db);
+  renderRoznamcha();
+  notify('Entry deleted', 'success');
+}
+
+// ===================== TENANT DETAIL =====================
+function openTenantDetail(shopId) {
+  const s = db.shops.find(x => x.id === shopId);
+  if (!s) return;
+  const payments = db.rentPayments.filter(r => r.shopId === shopId).sort((a,b) => b.date.localeCompare(a.date));
+  const totalPaid = payments.reduce((x,r) => x+(Number(r.amount)||0), 0);
+  const balance = (Number(s.depositPaid)||0) - (Number(s.depositWithheld)||0);
+
+  document.getElementById('td-title').textContent = `${s.shopNum} — ${s.tenantName}`;
+  document.getElementById('td-body').innerHTML = `
+    <div class="detail-grid" style="margin-bottom:20px">
+      <div class="detail-item"><div class="dk">Shop Number</div><div class="dv">${s.shopNum}</div></div>
+      <div class="detail-item"><div class="dk">Shop Name</div><div class="dv">${s.shopName||'—'}</div></div>
+      <div class="detail-item"><div class="dk">Tenant</div><div class="dv">${s.tenantName}</div></div>
+      <div class="detail-item"><div class="dk">Phone</div><div class="dv">${s.tenantPhone||'—'}</div></div>
+      <div class="detail-item"><div class="dk">Monthly Rent</div><div class="dv">${fmt(s.monthlyRent)}</div></div>
+      <div class="detail-item"><div class="dk">Start Date</div><div class="dv">${s.startDate||'—'}</div></div>
+      <div class="detail-item"><div class="dk">Deposit (agreed)</div><div class="dv">${fmt(s.depositTotal)}</div></div>
+      <div class="detail-item"><div class="dk">Deposit Received</div><div class="dv">${fmt(s.depositPaid)}</div></div>
+      <div class="detail-item"><div class="dk">Deposit Withheld</div><div class="dv">${fmt(s.depositWithheld||0)}</div></div>
+      <div class="detail-item"><div class="dk">Deposit Balance</div><div class="dv" style="color:${balance>=0?'var(--success)':'var(--danger)'}">${fmt(balance)}</div></div>
+      <div class="detail-item"><div class="dk">Status</div><div class="dv"><span class="badge ${s.status==='active'?'badge-green':'badge-gray'}">${s.status}</span></div></div>
+      <div class="detail-item"><div class="dk">Total Rent Collected</div><div class="dv" style="color:var(--success)">${fmt(totalPaid)}</div></div>
+    </div>
+    ${s.notes ? `<div style="background:var(--bg);border-radius:8px;padding:12px;font-size:13px;margin-bottom:20px;color:var(--muted)"><strong>Notes:</strong> ${s.notes}</div>` : ''}
+    <div style="font-weight:700;font-size:14px;margin-bottom:12px">Rent Payment History (${payments.length})</div>
+    ${payments.length ? `<div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>For Month</th><th>Amount</th><th>Mode</th><th>Notes</th></tr></thead>
+      <tbody>${payments.map(r => `<tr>
+        <td>${r.date}</td><td>${r.forMonth}</td>
+        <td><strong>${fmt(r.amount)}</strong></td>
+        <td><span class="badge badge-blue">${r.mode}</span></td>
+        <td style="font-size:12px;color:var(--muted)">${r.notes||'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>` : '<p style="color:var(--muted);font-size:13px">No payments recorded.</p>'}
+  `;
+  openModal('modal-tenant-detail');
+}
+
+// ===================== EXPORT =====================
+function csvEscape(v) {
+  v = String(v ?? '');
+  if (v.includes(',') || v.includes('"') || v.includes('\n')) return '"' + v.replace(/"/g,'""') + '"';
+  return v;
+}
+
+function buildCSV(headers, rows) {
+  return [headers, ...rows].map(r => r.map(csvEscape).join(',')).join('\n');
+}
+
+function downloadCSV(filename, csv) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
+function exportShopsCSV() {
+  const shops = getShops();
+  const biz = getBiz();
+  const csv = buildCSV(
+    ['Business','Shop #','Shop Name','Tenant Name','Phone','Monthly Rent','Deposit Total','Deposit Received','Deposit Withheld','Deposit Balance','Start Date','Status','Notes'],
+    shops.map(s => [
+      biz?.name||'', s.shopNum, s.shopName, s.tenantName, s.tenantPhone,
+      s.monthlyRent, s.depositTotal, s.depositPaid, s.depositWithheld||0,
+      (Number(s.depositPaid)||0)-(Number(s.depositWithheld)||0),
+      s.startDate, s.status, s.notes
+    ])
+  );
+  downloadCSV(`shops_${today()}.csv`, csv);
+  notify('Shops CSV downloaded', 'success');
+}
+
+function exportRentCSV() {
+  const biz = getBiz();
+  const payments = getRent().sort((a,b) => b.date.localeCompare(a.date));
+  const csv = buildCSV(
+    ['Business','Date','Shop #','Tenant','For Month','Amount','Payment Mode','Notes'],
+    payments.map(r => {
+      const s = db.shops.find(x => x.id === r.shopId);
+      return [biz?.name||'', r.date, s?.shopNum||'', s?.tenantName||'', r.forMonth, r.amount, r.mode, r.notes];
+    })
+  );
+  downloadCSV(`rent_${today()}.csv`, csv);
+  notify('Rent CSV downloaded', 'success');
+}
+
+function exportRozCSV() {
+  const biz = getBiz();
+  const entries = getRoz().sort((a,b) => b.date.localeCompare(a.date));
+  const csv = buildCSV(
+    ['Business','Date','Party Name','Description','Quantity','Rate','Amount','Type','Notes'],
+    entries.map(r => [biz?.name||'', r.date, r.party, r.desc, r.qty, r.rate, r.amount, r.type, r.notes])
+  );
+  downloadCSV(`roznamcha_${today()}.csv`, csv);
+  notify('Roz Namcha CSV downloaded', 'success');
+}
+
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `bizmanager_backup_${today()}.json`;
+  a.click();
+  notify('Backup downloaded', 'success');
+}
+
+function importJSON(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported.businesses) throw new Error('Invalid file');
+      if (!confirm('This will REPLACE all current data. Are you sure?')) return;
+      db = imported;
+      saveDB(db);
+      renderBizDropdown();
+      renderSection(currentSection);
+      notify('Data restored successfully', 'success');
+    } catch(err) {
+      notify('Invalid backup file', 'error');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+// ===================== UTILITIES =====================
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function fmt(n) {
+  n = Number(n)||0;
+  return 'Rs ' + n.toLocaleString('en-PK');
+}
+
+function requireBiz() {
+  if (!db.activeBizId) {
+    document.getElementById('content').querySelector('.section.active').innerHTML =
+      `<div class="card" style="text-align:center;padding:48px">
+        <div style="font-size:48px;margin-bottom:16px">🏢</div>
+        <h2 style="margin-bottom:8px">No Business Selected</h2>
+        <p style="color:var(--muted);margin-bottom:20px">Add a business to get started.</p>
+        <button class="btn btn-primary" onclick="openAddBusiness()">+ Add Business</button>
+      </div>`;
+    return false;
+  }
+  return true;
+}
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function notify(msg, type = 'success') {
+  const wrap = document.getElementById('notif');
+  const el = document.createElement('div');
+  el.className = `notif-item ${type}`;
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// ===================== INIT =====================
+renderBizDropdown();
+renderDashboard();
+
+// If no business, prompt to add
+if (!db.activeBizId || !db.businesses.length) {
+  setTimeout(() => openAddBusiness(), 300);
+}
+</script>
+</body>
+</html>
