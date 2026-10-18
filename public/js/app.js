@@ -32,32 +32,13 @@ function rentInfo(shop, month) {
 const rentDueFor = (shop, month) => rentInfo(shop, month).due;
 const rentNote = i => i.type === 'prorated' ? `pro-rata: ${i.days} of ${i.dim} days` : i.type === 'adjusted' ? 'changed by you' : '';
 
-// ---- Rent still unpaid, month by month, from the tenant's first month up to a month ----
-const prevMonth = m => { const [y, mo] = m.split('-').map(Number); const d = new Date(y, mo - 2, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
-const nextMonth = m => { const [y, mo] = m.split('-').map(Number); const d = new Date(y, mo, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
-function outstandingFor(shop, uptoMonth) {
-  const pays = getRent().filter(r => r.shopId === shop.id);
-  const firsts = [shop.startDate && shop.startDate.slice(0, 7), ...pays.map(r => r.forMonth)].filter(Boolean).sort();
-  let m = firsts[0] || uptoMonth;
-  const months = [];
-  let expected = 0, collected = 0;
-  for (let n = 0; m <= uptoMonth && n < 120; m = nextMonth(m), n++) {
-    const due = rentDueFor(shop, m);
-    const paid = paidFor(shop.id, m);
-    expected += due; collected += paid;
-    if (due - paid > 0) months.push({ month: m, due, paid, left: due - paid });
-  }
-  // remaining = total expected - total collected
-  return { months, expected, collected, total: expected - collected };
-}
-// Everything the active shops should have paid up to a month, what was collected, and the difference.
-function rentTotals(uptoMonth) {
-  return getShops().filter(s => s.status === 'active').reduce((t, s) => {
-    const o = outstandingFor(s, uptoMonth);
-    return { expected: t.expected + o.expected, collected: t.collected + o.collected, remaining: t.remaining + o.total };
-  }, { expected: 0, collected: 0, remaining: 0 });
-}
-const totalOutstanding = uptoMonth => rentTotals(uptoMonth).remaining;
+// ---- Rent for one month: expected - collected (active shops) ----
+const monthTotals = month => {
+  const active = getShops().filter(s => s.status === 'active');
+  const expected = active.reduce((t, s) => t + rentDueFor(s, month), 0);
+  const collected = active.reduce((t, s) => t + paidFor(s.id, month), 0);
+  return { expected, collected, remaining: expected - collected };
+};
 const monthName = m => new Date(m + '-01T00:00').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 
 // ---- Shop ordering: automatic (natural shop-number order) or the owner's own order ----
@@ -178,7 +159,7 @@ function renderDashboard() {
     <div class="stat-card blue"><div class="label">Shops Rented Out</div><div class="value">${active}</div></div>
     <div class="stat-card green"><div class="label">Rent Expected This Month</div><div class="value">${fmt(totalRent)}</div></div>
     <div class="stat-card orange"><div class="label">Rent Received This Month</div><div class="value">${fmt(rentThisMonth)}</div></div>
-    <div class="stat-card red" onclick="navigate('rent')" style="cursor:pointer"><div class="label">Total Rent Still Remaining</div><div class="value">${fmt(rentTotals(thisMonth).remaining)}</div><div class="sub">Expected ${fmt(rentTotals(thisMonth).expected)} − Collected ${fmt(rentTotals(thisMonth).collected)}</div></div>
+    <div class="stat-card red" onclick="navigate('rent')" style="cursor:pointer"><div class="label">Rent Still Remaining (This Month)</div><div class="value">${fmt(monthTotals(thisMonth).remaining)}</div><div class="sub">Expected ${fmt(monthTotals(thisMonth).expected)} − Collected ${fmt(monthTotals(thisMonth).collected)}</div></div>
     <div class="stat-card red"><div class="label">Security Deposits Held</div><div class="value">${fmt(totalDeposit)}</div></div>
     <div class="stat-card green" onclick="navigate('parties')" style="cursor:pointer"><div class="label">Parties Owe You</div><div class="value">${fmt(partyTotals().receive)}</div></div>
     <div class="stat-card orange" onclick="navigate('parties')" style="cursor:pointer"><div class="label">You Need To Pay</div><div class="value">${fmt(partyTotals().pay)}</div></div>
@@ -441,22 +422,7 @@ function paidFor(shopId, month, exceptId) {
     .reduce((s, r) => s + (Number(r.amount) || 0), 0);
 }
 
-function renderRentSummary(month) {
-  const active = getShops().filter(s => s.status === 'active');
-  const expected = active.reduce((t, s) => t + rentDueFor(s, month), 0);
-  const collected = active.reduce((t, s) => t + paidFor(s.id, month), 0);
-  const cur = today().slice(0, 7);
-  const all = rentTotals(cur);
-  const box = (cls, label, v) => `<div class="stat-card ${cls}"><div class="label">${label}</div><div class="value">${fmt(v)}</div></div>`;
-  document.getElementById('rent-summary').innerHTML = `
-    <div class="summary-title">${monthName(month)}</div>
-    ${box('blue', 'Total expected', expected)}${box('green', 'Collected', collected)}${box(expected - collected > 0 ? 'orange' : 'green', 'Remaining', expected - collected)}
-    <div class="summary-title">All months up to ${monthName(cur)}</div>
-    ${box('blue', 'Total expected', all.expected)}${box('green', 'Collected', all.collected)}${box(all.remaining > 0 ? 'red' : 'green', 'Remaining', all.remaining)}`;
-}
-
 function renderRentStatus(month) {
-  renderRentSummary(month);
   const el = document.getElementById('rent-status');
   document.getElementById('rent-status-month').textContent = new Date(month + '-01T00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   const shops = getShops().filter(s => s.status === 'active' && rentInfo(s, month).type !== 'notstarted');
@@ -468,13 +434,11 @@ function renderRentStatus(month) {
     const paid = pays.reduce((t, r) => t + (Number(r.amount) || 0), 0);
     const left = Math.max(rent - paid, 0);
     const pct = rent ? Math.min(100, Math.round(paid / rent * 100)) : 0;
-    const earlier = outstandingFor(s, prevMonth(month));
     const state = paid >= rent && rent > 0 ? ['Fully paid', 'badge-green', 'green'] : paid > 0 ? ['Part paid', 'badge-orange', ''] : ['Not paid', 'badge-red', 'red'];
     return `<div class="card rent-card">
       <div class="rc-head"><div><strong>${esc(s.shopNum)}</strong> · ${esc(s.tenantName)}</div><span class="badge ${state[1]}">${state[0]}</span></div>
       <div class="rc-nums"><div><small>Rent${rentNote(info) ? ' (' + rentNote(info) + ')' : ''}</small><b>${fmt(rent)}</b></div><div><small>Paid</small><b style="color:var(--success)">${fmt(paid)}</b></div><div><small>Still to pay</small><b style="color:${left ? 'var(--danger)' : 'var(--success)'}">${fmt(left)}</b></div></div>
       <div class="progress-wrap"><div class="progress-fill ${state[2]}" style="width:${pct}%"></div></div>
-      ${earlier.total ? `<div class="arrears">⚠️ ${fmt(earlier.total)} unpaid from earlier: ${earlier.months.map(x => monthName(x.month)).join(', ')}</div>` : ''}
       ${pays.length ? `<ol class="rc-stages">${pays.map((r, i) => `<li>Payment ${i + 1}: <b>${fmt(r.amount)}</b> on ${esc(r.date)} <span class="muted">(${esc(r.mode)})</span></li>`).join('')}</ol>` : ''}
       ${left ? `<button class="btn btn-success btn-sm" onclick="collectRent('${s.id}',${left},'${month}')">+ Add a payment${pays.length ? ' (next stage)' : ''}</button>` : ''}
       <button class="btn btn-ghost btn-sm" onclick="openRentAdjust('${s.id}','${month}')">✏️ Change rent for this month</button>
@@ -841,7 +805,8 @@ function openTenantDetail(shopId) {
   const payments = db.rentPayments.filter(r => r.shopId === shopId).sort((a,b) => b.date.localeCompare(a.date));
   const totalPaid = payments.reduce((x,r) => x+(Number(r.amount)||0), 0);
   const balance = (Number(s.depositPaid)||0) - (Number(s.depositWithheld)||0);
-  const owed = outstandingFor(s, today().slice(0, 7));
+  const cm = today().slice(0, 7);
+  const owed = { total: rentDueFor(s, cm) - paidFor(s.id, cm) };
 
   document.getElementById('td-title').textContent = `${s.shopNum} — ${s.tenantName}`;
   document.getElementById('td-body').innerHTML = `
@@ -858,10 +823,9 @@ function openTenantDetail(shopId) {
       <div class="detail-item"><div class="dk">Deposit Balance</div><div class="dv" style="color:${balance>=0?'var(--success)':'var(--danger)'}">${fmt(balance)}</div></div>
       <div class="detail-item"><div class="dk">Status</div><div class="dv"><span class="badge ${s.status==='active'?'badge-green':'badge-gray'}">${esc(s.status)}</span></div></div>
       <div class="detail-item"><div class="dk">Total Rent Collected</div><div class="dv" style="color:var(--success)">${fmt(totalPaid)}</div></div>
-      <div class="detail-item"><div class="dk">Rent Still Unpaid (to date)</div><div class="dv" style="color:${owed.total ? 'var(--danger)' : 'var(--success)'}">${fmt(owed.total)}</div></div>
+      <div class="detail-item"><div class="dk">Rent Still Unpaid (This Month)</div><div class="dv" style="color:${owed.total ? 'var(--danger)' : 'var(--success)'}">${fmt(owed.total)}</div></div>
     </div>
     ${s.notes ? `<div style="background:var(--bg);border-radius:8px;padding:12px;font-size:13px;margin-bottom:20px;color:var(--muted)"><strong>Notes:</strong> ${esc(s.notes)}</div>` : ''}
-    ${owed.months.length ? `<div class="rent-info"><b>Unpaid months:</b> ${owed.months.map(x => `${monthName(x.month)} <b style="color:var(--danger)">${fmt(x.left)}</b>`).join(' · ')}</div>` : ''}
     <div style="font-weight:700;font-size:14px;margin-bottom:12px">Rent Payment History (${payments.length})</div>
     ${payments.length ? `<div class="table-wrap"><table>
       <thead><tr><th>Date</th><th>For Month</th><th>Amount</th><th>Mode</th><th>Notes</th></tr></thead>
