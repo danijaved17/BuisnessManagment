@@ -32,14 +32,13 @@ function rentInfo(shop, month) {
 const rentDueFor = (shop, month) => rentInfo(shop, month).due;
 const rentNote = i => i.type === 'prorated' ? `pro-rata: ${i.days} of ${i.dim} days` : i.type === 'adjusted' ? 'changed by you' : '';
 
-// ---- Rent for one month: expected - collected (active shops) ----
-const monthTotals = month => {
+// Rent for one month across active shops: expected - collected. (Earlier months are assumed paid.)
+function monthTotals(month) {
   const active = getShops().filter(s => s.status === 'active');
   const expected = active.reduce((t, s) => t + rentDueFor(s, month), 0);
   const collected = active.reduce((t, s) => t + paidFor(s.id, month), 0);
   return { expected, collected, remaining: expected - collected };
-};
-const monthName = m => new Date(m + '-01T00:00').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+}
 
 // ---- Shop ordering: automatic (natural shop-number order) or the owner's own order ----
 const shopCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });   // S-2 before S-10
@@ -159,7 +158,7 @@ function renderDashboard() {
     <div class="stat-card blue"><div class="label">Shops Rented Out</div><div class="value">${active}</div></div>
     <div class="stat-card green"><div class="label">Rent Expected This Month</div><div class="value">${fmt(totalRent)}</div></div>
     <div class="stat-card orange"><div class="label">Rent Received This Month</div><div class="value">${fmt(rentThisMonth)}</div></div>
-    <div class="stat-card red" onclick="navigate('rent')" style="cursor:pointer"><div class="label">Rent Still Remaining (This Month)</div><div class="value">${fmt(monthTotals(thisMonth).remaining)}</div><div class="sub">Expected ${fmt(monthTotals(thisMonth).expected)} − Collected ${fmt(monthTotals(thisMonth).collected)}</div></div>
+    <div class="stat-card red"><div class="label">Total Rent Still Remaining</div><div class="value">${fmt(monthTotals(thisMonth).remaining)}</div><div class="sub">Expected ${fmt(monthTotals(thisMonth).expected)} − Collected ${fmt(monthTotals(thisMonth).collected)}</div></div>
     <div class="stat-card red"><div class="label">Security Deposits Held</div><div class="value">${fmt(totalDeposit)}</div></div>
     <div class="stat-card green" onclick="navigate('parties')" style="cursor:pointer"><div class="label">Parties Owe You</div><div class="value">${fmt(partyTotals().receive)}</div></div>
     <div class="stat-card orange" onclick="navigate('parties')" style="cursor:pointer"><div class="label">You Need To Pay</div><div class="value">${fmt(partyTotals().pay)}</div></div>
@@ -805,8 +804,6 @@ function openTenantDetail(shopId) {
   const payments = db.rentPayments.filter(r => r.shopId === shopId).sort((a,b) => b.date.localeCompare(a.date));
   const totalPaid = payments.reduce((x,r) => x+(Number(r.amount)||0), 0);
   const balance = (Number(s.depositPaid)||0) - (Number(s.depositWithheld)||0);
-  const cm = today().slice(0, 7);
-  const owed = { total: rentDueFor(s, cm) - paidFor(s.id, cm) };
 
   document.getElementById('td-title').textContent = `${s.shopNum} — ${s.tenantName}`;
   document.getElementById('td-body').innerHTML = `
@@ -823,7 +820,6 @@ function openTenantDetail(shopId) {
       <div class="detail-item"><div class="dk">Deposit Balance</div><div class="dv" style="color:${balance>=0?'var(--success)':'var(--danger)'}">${fmt(balance)}</div></div>
       <div class="detail-item"><div class="dk">Status</div><div class="dv"><span class="badge ${s.status==='active'?'badge-green':'badge-gray'}">${esc(s.status)}</span></div></div>
       <div class="detail-item"><div class="dk">Total Rent Collected</div><div class="dv" style="color:var(--success)">${fmt(totalPaid)}</div></div>
-      <div class="detail-item"><div class="dk">Rent Still Unpaid (This Month)</div><div class="dv" style="color:${owed.total ? 'var(--danger)' : 'var(--success)'}">${fmt(owed.total)}</div></div>
     </div>
     ${s.notes ? `<div style="background:var(--bg);border-radius:8px;padding:12px;font-size:13px;margin-bottom:20px;color:var(--muted)"><strong>Notes:</strong> ${esc(s.notes)}</div>` : ''}
     <div style="font-weight:700;font-size:14px;margin-bottom:12px">Rent Payment History (${payments.length})</div>
