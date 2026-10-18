@@ -355,3 +355,7 @@ tr.drop-target { outline: 2px dashed var(--primary); outline-offset: -2px; backg
 .rent-card .btn + .btn { margin-top: 6px; }
 .arrears { background: #fee2e2; color: #991b1b; border-radius: 8px; padding: 6px 10px; font-size: 12px; margin-top: 8px; }
 #rent-summary { margin-bottom: 18px; }
+.stat-card .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+#rent-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+#rent-summary .summary-title { grid-column: 1 / -1; font-weight: 700; font-size: 14px; margin-top: 4px; }
+@media (max-width: 800px) { #rent-summary { grid-template-columns: 1fr 1fr 1fr; gap: 8px; } #rent-summary .stat-card { padding: 10px; } #rent-summary .value { font-size: 15px; } #rent-summary .label { font-size: 11px; } }
