@@ -352,6 +352,7 @@
       <div class="form-group">
         <label>Start Date</label>
         <input id="f-start-date" type="date">
+        <small class="hint">The day the tenant started renting</small>
       </div>
       <div class="form-group">
         <label>Deposit Agreed</label>
@@ -373,6 +374,10 @@
           <option value="active">Active</option>
           <option value="inactive">Moved out (vacated)</option>
         </select>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="check-row"><input type="checkbox" id="f-prorate" checked> Charge the first month by the number of days (pro-rata)</label>
+        <small class="hint">For a tenant who starts in the middle of a month. Example: rent Rs 31,000, starts on the 15th of a 31-day month → Rs 17,000 for that month. You can still change any month's amount later.</small>
       </div>
       <div class="form-group" style="grid-column:1/-1">
         <label>Notes</label>
@@ -432,6 +437,27 @@
       <button class="btn btn-primary" onclick="saveRent()">Save</button>
     </div>
     <input type="hidden" id="f-rent-id">
+  </div>
+</div>
+
+<!-- Adjust rent for one month -->
+<div class="modal-overlay" id="modal-adjust">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <h2 id="adj-title">Rent for this month</h2>
+      <button class="modal-close" onclick="closeModal('modal-adjust')">×</button>
+    </div>
+    <div id="adj-info" class="rent-info"></div>
+    <div class="form-group">
+      <label>Rent to charge for this month (PKR)</label>
+      <input id="adj-amount" type="number" inputmode="numeric" placeholder="0">
+      <small class="hint">Use this for part-months, discounts or free months. Only this month is changed.</small>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="clearRentAdjust()">Use automatic amount</button>
+      <button class="btn btn-primary" onclick="saveRentAdjust()">Save</button>
+    </div>
+    <input type="hidden" id="adj-shop"><input type="hidden" id="adj-month">
   </div>
 </div>
 

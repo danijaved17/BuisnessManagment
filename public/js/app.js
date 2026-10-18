@@ -11,6 +11,27 @@ const db = {
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function getBiz() { return db.businesses.find(b => b.id === db.activeBizId); }
+// ---- Rent due for a given month (handles pro-rata first month and manual adjustments) ----
+function daysInMonth(m) { const [y, mo] = m.split('-').map(Number); return new Date(y, mo, 0).getDate(); }
+function rentInfo(shop, month) {
+  const full = Number(shop.monthlyRent) || 0;
+  const adj = shop.rentAdjust?.[month];
+  if (adj !== undefined && adj !== null && adj !== '') return { due: Number(adj) || 0, type: 'adjusted', full };
+  const sd = shop.startDate;
+  if (sd) {
+    const sm = sd.slice(0, 7);
+    if (month < sm) return { due: 0, type: 'notstarted', full };
+    const day = Number(sd.slice(8, 10));
+    if (month === sm && shop.prorate !== false && day > 1) {
+      const dim = daysInMonth(month), days = dim - day + 1;
+      return { due: Math.round(full * days / dim), type: 'prorated', days, dim, full };
+    }
+  }
+  return { due: full, type: 'full', full };
+}
+const rentDueFor = (shop, month) => rentInfo(shop, month).due;
+const rentNote = i => i.type === 'prorated' ? `pro-rata: ${i.days} of ${i.dim} days` : i.type === 'adjusted' ? 'changed by you' : '';
+
 // ---- Shop ordering: automatic (natural shop-number order) or the owner's own order ----
 const shopCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });   // S-2 before S-10
 function shopSortMode() { try { return localStorage.getItem('shopSort') || 'number'; } catch (e) { return 'number'; } }
@@ -119,15 +140,15 @@ function renderDashboard() {
   const shops = getShops();
   const rent = getRent();
   const roz = getRoz();
-  const totalRent = shops.reduce((s, sh) => s + (Number(sh.monthlyRent)||0), 0);
   const totalDeposit = shops.reduce((s, sh) => s + (Number(sh.depositPaid)||0), 0);
   const thisMonth = new Date().toISOString().slice(0,7);
+  const totalRent = shops.filter(s => s.status === 'active').reduce((t, sh) => t + rentDueFor(sh, thisMonth), 0);
   const rentThisMonth = rent.filter(r => r.forMonth === thisMonth).reduce((s,r) => s+(Number(r.amount)||0), 0);
   const active = shops.filter(s => s.status === 'active').length;
 
   document.getElementById('dash-stats').innerHTML = `
     <div class="stat-card blue"><div class="label">Shops Rented Out</div><div class="value">${active}</div></div>
-    <div class="stat-card green"><div class="label">Rent Expected Each Month</div><div class="value">${fmt(totalRent)}</div></div>
+    <div class="stat-card green"><div class="label">Rent Expected This Month</div><div class="value">${fmt(totalRent)}</div></div>
     <div class="stat-card orange"><div class="label">Rent Received This Month</div><div class="value">${fmt(rentThisMonth)}</div></div>
     <div class="stat-card red"><div class="label">Security Deposits Held</div><div class="value">${fmt(totalDeposit)}</div></div>
     <div class="stat-card green" onclick="navigate('parties')" style="cursor:pointer"><div class="label">Parties Owe You</div><div class="value">${fmt(partyTotals().receive)}</div></div>
@@ -137,7 +158,7 @@ function renderDashboard() {
   // Rent due
   const due = shops.filter(s => s.status === 'active').map(s => {
     const paid = rent.filter(r => r.shopId === s.id && r.forMonth === thisMonth).reduce((x,r) => x+(Number(r.amount)||0), 0);
-    const due = (Number(s.monthlyRent)||0) - paid;
+    const due = rentDueFor(s, thisMonth) - paid;
     return { ...s, paid, due };
   }).filter(s => s.due > 0);
 
@@ -257,6 +278,7 @@ function openShopModal(id) {
   document.getElementById('f-deposit-paid').value = s?.depositPaid || '';
   document.getElementById('f-deposit-date').value = s?.depositDate || '';
   document.getElementById('f-status').value = s?.status || 'active';
+  document.getElementById('f-prorate').checked = s?.prorate !== false;
   document.getElementById('f-notes').value = s?.notes || '';
   openModal('modal-shop');
 }
@@ -280,15 +302,14 @@ async function saveShop() {
     depositDate: document.getElementById('f-deposit-date').value,
     status: document.getElementById('f-status').value,
     notes: document.getElementById('f-notes').value.trim(),
-    depositWithheld: 0,
-    depositNotes: ''
+    prorate: document.getElementById('f-prorate').checked
   };
 
   if (id) {
     const existing = db.shops.find(s => s.id === id);
     await Store.put('shops', { ...existing, ...data, id });
   } else {
-    await Store.put('shops', { id: Store.uid(), ...data });
+    await Store.put('shops', { id: Store.uid(), depositWithheld: 0, depositNotes: '', ...data });
   }
   closeModal('modal-shop');
   renderShops();
@@ -394,10 +415,11 @@ function paidFor(shopId, month, exceptId) {
 function renderRentStatus(month) {
   const el = document.getElementById('rent-status');
   document.getElementById('rent-status-month').textContent = new Date(month + '-01T00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-  const shops = getShops().filter(s => s.status === 'active');
-  if (!shops.length) { el.innerHTML = '<div class="card empty-state"><p>No active tenants yet.</p></div>'; return; }
+  const shops = getShops().filter(s => s.status === 'active' && rentInfo(s, month).type !== 'notstarted');
+  if (!shops.length) { el.innerHTML = '<div class="card empty-state"><p>No tenants renting in this month.</p></div>'; return; }
   el.innerHTML = shops.map(s => {
-    const rent = Number(s.monthlyRent) || 0;
+    const info = rentInfo(s, month);
+    const rent = info.due;
     const pays = getRent().filter(r => r.shopId === s.id && r.forMonth === month).sort((x, y) => x.date.localeCompare(y.date));
     const paid = pays.reduce((t, r) => t + (Number(r.amount) || 0), 0);
     const left = Math.max(rent - paid, 0);
@@ -405,12 +427,44 @@ function renderRentStatus(month) {
     const state = paid >= rent && rent > 0 ? ['Fully paid', 'badge-green', 'green'] : paid > 0 ? ['Part paid', 'badge-orange', ''] : ['Not paid', 'badge-red', 'red'];
     return `<div class="card rent-card">
       <div class="rc-head"><div><strong>${esc(s.shopNum)}</strong> · ${esc(s.tenantName)}</div><span class="badge ${state[1]}">${state[0]}</span></div>
-      <div class="rc-nums"><div><small>Rent</small><b>${fmt(rent)}</b></div><div><small>Paid</small><b style="color:var(--success)">${fmt(paid)}</b></div><div><small>Still to pay</small><b style="color:${left ? 'var(--danger)' : 'var(--success)'}">${fmt(left)}</b></div></div>
+      <div class="rc-nums"><div><small>Rent${rentNote(info) ? ' (' + rentNote(info) + ')' : ''}</small><b>${fmt(rent)}</b></div><div><small>Paid</small><b style="color:var(--success)">${fmt(paid)}</b></div><div><small>Still to pay</small><b style="color:${left ? 'var(--danger)' : 'var(--success)'}">${fmt(left)}</b></div></div>
       <div class="progress-wrap"><div class="progress-fill ${state[2]}" style="width:${pct}%"></div></div>
       ${pays.length ? `<ol class="rc-stages">${pays.map((r, i) => `<li>Payment ${i + 1}: <b>${fmt(r.amount)}</b> on ${esc(r.date)} <span class="muted">(${esc(r.mode)})</span></li>`).join('')}</ol>` : ''}
       ${left ? `<button class="btn btn-success btn-sm" onclick="collectRent('${s.id}',${left},'${month}')">+ Add a payment${pays.length ? ' (next stage)' : ''}</button>` : ''}
+      <button class="btn btn-ghost btn-sm" onclick="openRentAdjust('${s.id}','${month}')">✏️ Change rent for this month</button>
     </div>`;
   }).join('');
+}
+
+function openRentAdjust(shopId, month) {
+  const s = db.shops.find(x => x.id === shopId);
+  if (!s) return;
+  const info = rentInfo(s, month);
+  const auto = rentInfo({ ...s, rentAdjust: {} }, month);
+  document.getElementById('adj-shop').value = shopId;
+  document.getElementById('adj-month').value = month;
+  document.getElementById('adj-title').textContent = `${s.shopNum} · ${new Date(month + '-01T00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;
+  document.getElementById('adj-info').innerHTML = `Full monthly rent: <b>${fmt(auto.full)}</b><br>Automatic amount for this month: <b>${fmt(auto.due)}</b>${rentNote(auto) ? ` <span class="muted">(${rentNote(auto)})</span>` : ''}`;
+  document.getElementById('adj-amount').value = info.due;
+  openModal('modal-adjust');
+}
+
+async function saveRentAdjust() {
+  const s = db.shops.find(x => x.id === document.getElementById('adj-shop').value);
+  const month = document.getElementById('adj-month').value;
+  const raw = document.getElementById('adj-amount').value;
+  if (!s || raw === '' || Number(raw) < 0) return notify('Enter the rent amount for this month', 'error');
+  await Store.put('shops', { ...s, rentAdjust: { ...(s.rentAdjust || {}), [month]: Number(raw) } });
+  closeModal('modal-adjust'); renderRent(); notify('Rent changed for this month only', 'success');
+}
+
+async function clearRentAdjust() {
+  const s = db.shops.find(x => x.id === document.getElementById('adj-shop').value);
+  const month = document.getElementById('adj-month').value;
+  if (!s) return;
+  const adj = { ...(s.rentAdjust || {}) }; delete adj[month];
+  await Store.put('shops', { ...s, rentAdjust: adj });
+  closeModal('modal-adjust'); renderRent(); notify('Back to the automatic amount', 'success');
 }
 
 function updateRentInfo() {
@@ -418,13 +472,14 @@ function updateRentInfo() {
   const shop = db.shops.find(s => s.id === document.getElementById('f-rent-shop').value);
   const month = document.getElementById('f-rent-month').value;
   if (!shop || !month) { el.innerHTML = ''; return; }
-  const rent = Number(shop.monthlyRent) || 0;
+  const info = rentInfo(shop, month);
+  const rent = info.due;
   const already = paidFor(shop.id, month, document.getElementById('f-rent-id').value);
   const now = Number(document.getElementById('f-rent-amount').value) || 0;
   const after = rent - already - now;
   const amt = document.getElementById('f-rent-amount');
   amt.max = rent > 0 ? Math.max(rent - already, 0) : '';
-  el.innerHTML = `Rent <b>${fmt(rent)}</b> · already paid <b>${fmt(already)}</b> · after this payment: ` +
+  el.innerHTML = `Rent <b>${fmt(rent)}</b>${rentNote(info) ? ` <span class="muted">(${rentNote(info)})</span>` : ''} · already paid <b>${fmt(already)}</b> · after this payment: ` +
     (after > 0 ? `<b style="color:var(--danger)">${fmt(after)} still to pay</b>` : after === 0 ? '<b style="color:var(--success)">fully paid ✓</b>' : `<b style="color:var(--danger)">too much — only ${fmt(rent - already)} can be paid</b>`);
 }
 
@@ -486,7 +541,7 @@ async function saveRent() {
   // Never collect more than the fixed monthly rent for that month.
   const shop = db.shops.find(s => s.id === shopId);
   const month = document.getElementById('f-rent-month').value;
-  const rentDue = Number(shop?.monthlyRent) || 0;
+  const rentDue = shop ? rentDueFor(shop, month) : 0;
   if (rentDue > 0) {
     const left = rentDue - paidFor(shopId, month, id);
     if (left <= 0) return notify(`Rent for this month is already fully paid (${fmt(rentDue)}).`, 'error');
