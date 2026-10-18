@@ -734,6 +734,8 @@ async function renderBackupWarning() {
 }
 
 async function renderAccount() {
+  document.getElementById('account-card').hidden = !Auth.isOn();
+  if (!Auth.isOn()) return;
   const user = await Auth.user();
   document.getElementById('account-card').innerHTML = `<div class="card-title">🔐 Admin account</div>
     <p class="muted" style="margin-bottom:12px;font-size:14px">Signed in as <b>${esc(user || 'admin')}</b> on this device.</p>
@@ -742,7 +744,7 @@ async function renderAccount() {
 
 async function renderOfflineStatus() {
   const el = document.getElementById('offline-status');
-  const ready = 'serviceWorker' in navigator && !!navigator.serviceWorker.controller && await caches.has('bizmanager-shell-v3');
+  const ready = 'serviceWorker' in navigator && !!navigator.serviceWorker.controller && await caches.has('bizmanager-shell-v4');
   const persisted = navigator.storage?.persisted ? await navigator.storage.persisted() : false;
   let usage = '';
   try { const e = await navigator.storage.estimate(); usage = ` (${(e.usage / 1048576).toFixed(1)} MB used)`; } catch (e) {}
@@ -895,6 +897,7 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 (async function init() {
   await Store.init();
   await Auth.ensure();
+  document.querySelector('.signout-link').hidden = !Auth.isOn();
   Store.onChange(() => {
     renderBizDropdown(); renderSection(currentSection); renderBackupWarning();
     if (db.businesses.length) closeModal('modal-biz');       // business arrived from the server

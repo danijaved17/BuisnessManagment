@@ -45,7 +45,7 @@ const Sync = (() => {
       setStatus(left ? 'pending' : 'ok', left ? `Waiting to upload (${left})` : 'All saved ✓');
     } catch (e) {
       const left = (await Store.dirtyRecords()).length;
-      if (e.auth) {
+      if (e.auth && Auth.isOn()) {
         running = false;
         await Auth.expired();
         return now();

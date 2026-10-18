@@ -2,10 +2,10 @@
 // the app keeps opening and working offline. Signing in itself needs the server.
 const Auth = (() => {
   const $ = id => document.getElementById(id);
-  let waiting = null, waitP = null;
+  let waiting = null, waitP = null, needed = false;
 
   async function status() {
-    const res = await fetch('/api/auth-status', { signal: AbortSignal.timeout(6000), cache: 'no-store' });
+    const res = await fetch('/api/auth-status', { signal: AbortSignal.timeout(3000), cache: 'no-store' });
     if (!res.ok) throw new Error('status');
     return res.json();
   }
@@ -76,7 +76,18 @@ const Auth = (() => {
   async function ensure() {
     $('login-form').addEventListener('submit', submit);
     $('login-retry').addEventListener('click', () => open());
-    if (await Store.getMeta('token')) return true;
+    const token = await Store.getMeta('token');
+    // Is login switched on at all? (remember the answer so offline start-up stays instant)
+    try {
+      const st = await status();
+      await Store.setMeta('authRequired', !!st.required);
+      if (!st.required) return true;
+    } catch (e) {
+      if (token) { needed = true; return true; }           // offline with a saved session
+      if ((await Store.getMeta('authRequired')) === false) return true;
+    }
+    if (token) { needed = true; return true; }
+    needed = true;
     return open();
   }
 
@@ -92,5 +103,5 @@ const Auth = (() => {
     location.reload();
   }
 
-  return { ensure, expired, logout, user: () => Store.getMeta('user') };
+  return { ensure, expired, logout, user: () => Store.getMeta('user'), isOn: () => needed };
 })();

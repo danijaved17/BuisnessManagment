@@ -35,7 +35,9 @@ install offline — put it behind HTTPS (e.g. Tailscale or Caddy) if you want th
 
 `api/` is the Vercel version of the server (Postgres). `server/` is the local SQLite version; both speak the same sync protocol.
 
-## Admin login
+## Admin login (currently OFF)
+Login is switched off by default. To turn it on set `REQUIRE_LOGIN=1` (locally: `REQUIRE_LOGIN=1 npm start`; on Vercel: add it as an environment variable and redeploy).
+
 - **Local server:** the first time you open the app **on the server computer** it asks you to create the admin
   username/password (stored hashed in `data/admin.json`). Other devices can only sign in, not create it.
   Forgot it? Stop the server, delete `data/admin.json`, start again.

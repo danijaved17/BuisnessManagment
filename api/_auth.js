@@ -10,7 +10,10 @@ const secret = () => (process.env.SESSION_SECRET || '') + '|' + password();
 const fp = () => A.fingerprint(password());
 const ip = req => String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
 
+const required = () => process.env.REQUIRE_LOGIN === '1';   // login is OFF unless this is set to 1
+
 function authorized(req) {
+  if (!required()) return true;
   if (!password()) return false;                                    // never run unprotected
   const t = String(req.headers['authorization'] || '').replace(/^Bearer /, '') || String(req.headers['x-token'] || '');
   return !!A.verify(secret(), t, fp());
@@ -27,4 +30,4 @@ async function login(req) {
   return { code: 200, body: { token: A.sign(secret(), user(), fp()), user: user() } };
 }
 
-module.exports = { authorized, login, configured: () => !!password() };
+module.exports = { authorized, login, required, configured: () => !!password() };

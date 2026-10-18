@@ -1,6 +1,6 @@
 // App shell is cached so the app opens with no internet and even with the server stopped.
 // Network-first (fresh when online) with a short timeout, then cache.
-const CACHE = 'bizmanager-shell-v3';
+const CACHE = 'bizmanager-shell-v4';
 const SHELL = ['./', 'index.html', 'css/app.css', 'js/store.js', 'js/auth.js', 'js/sync.js', 'js/app.js', 'manifest.webmanifest', 'icon.svg'];
 
 self.addEventListener('install', e => {

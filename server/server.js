@@ -26,7 +26,10 @@ const loadAdmin = () => {
 const adminFp = a => A.fingerprint(a.env ? a.pw : a.hash);
 const adminOk = (a, pw) => a.env ? A.safeEqual(pw, a.pw) : A.checkPassword(pw, a.hash);
 const isLoopback = req => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+// Login is OFF by default. Turn it on with REQUIRE_LOGIN=1 (then create the admin in the app).
+const REQUIRE_LOGIN = process.env.REQUIRE_LOGIN === '1';
 const authorized = req => {
+  if (!REQUIRE_LOGIN) return true;
   const a = loadAdmin();
   if (!a) return false;
   const t = String(req.headers['authorization'] || '').replace(/^Bearer /, '') || String(req.headers['x-token'] || '');
@@ -108,7 +111,7 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname === '/api/health') return send(res, 200, { ok: true });
     if (url.pathname === '/api/auth-status') {
-      return send(res, 200, { required: true, setupNeeded: !loadAdmin(), canSetup: isLoopback(req) });
+      return send(res, 200, { required: REQUIRE_LOGIN, setupNeeded: REQUIRE_LOGIN && !loadAdmin(), canSetup: isLoopback(req) });
     }
     if (url.pathname === '/api/setup' && req.method === 'POST') {
       if (loadAdmin()) return send(res, 409, { error: 'An admin account already exists.' });
@@ -154,5 +157,5 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`Business Manager running at http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
-  console.log(`Database: ${path.join(DATA_DIR, 'bizmanager.db')}${loadAdmin() ? '' : '  — open the app to create the admin account'}`);
+  console.log(`Database: ${path.join(DATA_DIR, 'bizmanager.db')}${REQUIRE_LOGIN ? (loadAdmin() ? '  (login required)' : '  — open the app to create the admin account') : '  (login is OFF — set REQUIRE_LOGIN=1 to enable)'}`);
 });
