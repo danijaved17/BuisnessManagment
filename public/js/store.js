@@ -112,7 +112,14 @@ const Store = (() => {
       mirror(rec);
       n++;
     }
-    if (n) changed(false);
+    if (n) {
+      // Data may have just arrived on a fresh device: make sure a business is selected.
+      if (!data.businesses.some(b => b.id === Store.activeBizId)) {
+        Store.activeBizId = data.businesses[0]?.id || null;
+        if (Store.activeBizId) await setMeta('activeBizId', Store.activeBizId);
+      }
+      changed(false);
+    }
     return n;
   }
 

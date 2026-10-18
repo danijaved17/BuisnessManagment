@@ -895,7 +895,10 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
 (async function init() {
   await Store.init();
   await Auth.ensure();
-  Store.onChange(() => { renderBizDropdown(); renderSection(currentSection); renderBackupWarning(); });
+  Store.onChange(() => {
+    renderBizDropdown(); renderSection(currentSection); renderBackupWarning();
+    if (db.businesses.length) closeModal('modal-biz');       // business arrived from the server
+  });
   if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
   renderBizDropdown();
   renderDashboard();
@@ -904,5 +907,6 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready).then(() => { if (currentSection === 'reports') renderOfflineStatus(); }).catch(() => {});
   }
-  if (!db.activeBizId || !db.businesses.length) setTimeout(() => openAddBusiness(), 300);
+  // First run only: ask for a business name — but wait a moment in case the server is about to send existing ones.
+  if (!db.businesses.length) setTimeout(() => { if (!db.businesses.length) openAddBusiness(); }, 1500);
 })();
