@@ -353,3 +353,5 @@ tr.drop-target { outline: 2px dashed var(--primary); outline-offset: -2px; backg
 .check-row { display: flex !important; align-items: center; gap: 10px; font-weight: 600; cursor: pointer; }
 .check-row input { width: 22px; height: 22px; min-height: 0; flex: none; }
 .rent-card .btn + .btn { margin-top: 6px; }
+.arrears { background: #fee2e2; color: #991b1b; border-radius: 8px; padding: 6px 10px; font-size: 12px; margin-top: 8px; }
+#rent-summary { margin-bottom: 18px; }
